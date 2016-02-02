@@ -48,6 +48,13 @@ class SARaH:
 		
 		self.rooms = [
 			{"name":"Kitchen","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Oven","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Coffee machine","on":True,"consumption":0},{"name":"Toaster","on":True,"consumption":0}]},
+			{"name":"Living room","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Wall","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0},{"name":"Sound system","on":True,"consumption":0}]},
+			{"name":"Bathroom","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Chandelier","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Hair dryer","on":True,"consumption":0}]},
+			{"name":"Dining room","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Chandelier","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Master bedroom","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Right night lamp","lightR":127,"lightG":127,"lightB":127},{"name":"Left night lamp","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Kid bedroom","lights":[],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Guest bedroom","lights":[],"temperature":20.0,"currentTemperature":19.5,"outlets":[]},
+			{"name":"Garage","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Lamp","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Central Vacuum","on":True,"consumption":0},{"name":"Water heater","on":True,"consumption":0}]},
 		]
 		
 		self.currentRoom = 0
@@ -116,7 +123,7 @@ class SARaH:
 				"inputs":[
 					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.changePage("sarah"), 68,10, 48,48, icon="images/Icons/microphone83.png"),
-					inputButton(self, lambda:self.changePage("home"), 126,10, 48,48, icon="images/Icons/key170.png"),
+					inputButton(self, lambda:self.changePage("keypad"), 126,10, 48,48, icon="images/Icons/key170.png"),
 					inputButton(self, lambda:self.changePage("home"), 262,10, 48,48, icon="images/Icons/configuration20.png"),
 					
 					inputLabel(self, "{0}", [lambda:self.getTime()], 160, 70, fontSize=72, align=(0.5,0)),
@@ -141,7 +148,7 @@ class SARaH:
 				"name":"Rooms",
 				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, [lambda:self.scrollButtons(0, 1, absolute=True), lambda:self.changePage("house")], 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.scrollButtons(-6), 204,10, 48,48, icon="images/Icons/left204.png"),
 					inputButton(self, lambda:self.scrollButtons(6), 262,10, 48,48, icon="images/Icons/right204.png"),
 					
@@ -165,23 +172,23 @@ class SARaH:
 					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
 					inputButton(self, [lambda:self.changePage("outlets"),lambda:self.scrollButtons(0, 1, absolute=True)], 262,10, 48,48, icon="images/Icons/electrical28.png"),
 				
-					inputSlider(self, "lightSlider", lambda:self.commitValues(), 100, 0, 100, 1, 222,80, 20,100, vertical=True, reversed_=True),
+					inputSlider(self, "lightSlider", lambda:self.commitValues(), 100, 0, 100, 1, 222,80, 20,100, vertical=True, reversed_=True, condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
 					
-					inputGrid(self, "RGBWheel", lambda:self.commitValues(), (50,50), 20,80, 100,100, image="images/HSV.png", circle=True),
+					inputGrid(self, "RGBWheel", lambda:self.commitValues(), (50,50), 20,80, 100,100, image="images/HSV.png", circle=True, condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
 					
 					inputLabel(self, "{0}\n{1}%", [lambda:getHexFromRGB(getRGBFromColorWheel( \
 						self.inputsValue["RGBWheel"][2], \
 						self.inputsValue["RGBWheel"][3], \
 						self.inputsValue["lightSlider"] \
-						)),lambda:roundTo(self.inputsValue["lightSlider"])], 202, 80, fontSize=20, align=(1,0)),
+						)),lambda:roundTo(self.inputsValue["lightSlider"])], 202, 80, fontSize=20, align=(1,0), condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
 					
-					inputButton(self, lambda:self.inputs[4].slide(-10,True,True), 252,80, 48,48, icon="images/Icons/up154.png"),
-					inputButton(self, lambda:self.inputs[4].slide(10,True,True), 252,132, 48,48, icon="images/Icons/down102.png"),
+					inputButton(self, lambda:self.inputs[4].slide(-10,True,True), 252,80, 48,48, icon="images/Icons/up154.png", condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
+					inputButton(self, lambda:self.inputs[4].slide(10,True,True), 252,132, 48,48, icon="images/Icons/down102.png", condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
 					
-					inputButton(self, [lambda:self.scrollButtons(-1, 1, self.rooms[self.currentRoom]["lights"]),lambda:self.sync(syncAllInputs=True)], 20,190, 30,30, icon="images/Icons/left204.png"),
-					inputButton(self, [lambda:self.scrollButtons(1, 1, self.rooms[self.currentRoom]["lights"]),lambda:self.sync(syncAllInputs=True)], 270,190, 30,30, icon="images/Icons/right204.png"),
+					inputButton(self, [lambda:self.scrollButtons(-1, 1, self.rooms[self.currentRoom]["lights"]), lambda:self.sync(resetScroll=False)], 20,190, 30,30, icon="images/Icons/left204.png", condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
+					inputButton(self, [lambda:self.scrollButtons(1, 1, self.rooms[self.currentRoom]["lights"]), lambda:self.sync(resetScroll=False)], 270,190, 30,30, icon="images/Icons/right204.png", condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
 				
-					inputLabel(self, "{0} ({1} of {2})", [lambda:self.rooms[self.currentRoom]["lights"][self.buttonScroll]["name"], lambda:self.buttonScroll+1,lambda:len(self.rooms[self.currentRoom]["lights"])], 160,205, align=(0.5,0.5))
+					inputLabel(self, "{0} ({1} of {2})", [lambda:self.rooms[self.currentRoom]["lights"][self.buttonScroll]["name"], lambda:self.buttonScroll+1,lambda:len(self.rooms[self.currentRoom]["lights"])], 160,205, align=(0.5,0.5), condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0)
 				]
 			},
 			"temperature":{
@@ -206,19 +213,19 @@ class SARaH:
 				"name":"Outlets",
 				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 10,10, 48,48, icon="images/Icons/house139.png"),
-					inputButton(self, [lambda:self.changePage("lights"),lambda:self.scrollButtons(0, 1, absolute=True)], 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
+					inputButton(self, [lambda:self.scrollButtons(0, 6, absolute=True), lambda:self.changePage("rooms")], 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, [lambda:self.scrollButtons(0, 1, absolute=True), lambda:self.changePage("lights")], 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
 					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
-					inputButton(self, [lambda:self.changePage("outlets"),lambda:self.scrollButtons(0, 1, absolute=True)], 262,10, 48,48, icon="images/Icons/electrical28.png"),
+					inputButton(self, [lambda:self.scrollButtons(0, 1, absolute=True), lambda:self.changePage("outlets")], 262,10, 48,48, icon="images/Icons/electrical28.png"),
 				
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom, self.buttonScroll, commit=True), 20,80, 48,48, icon="images/Icons/electrical28.png"),
-					inputButton(self, lambda:self.scrollButtons(-1, 1, self.rooms[self.currentRoom]["outlets"]), 20,172, 48,48, icon="images/Icons/left204.png"),
-					inputButton(self, lambda:self.scrollButtons(1, 1, self.rooms[self.currentRoom]["outlets"]), 252,172, 48,48, icon="images/Icons/right204.png"),
+					inputButton(self, lambda:self.toggleOutlet(self.currentRoom, self.buttonScroll, commit=True), 20,80, 48,48, icon="images/Icons/electrical28.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
+					inputButton(self, lambda:self.scrollButtons(-1, 1, self.rooms[self.currentRoom]["outlets"]), 20,172, 48,48, icon="images/Icons/left204.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
+					inputButton(self, lambda:self.scrollButtons(1, 1, self.rooms[self.currentRoom]["outlets"]), 252,172, 48,48, icon="images/Icons/right204.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					
-					inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["name"],lambda:"ON" if self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["on"] else "OFF"], 78,80, fontSize=20),
-					inputLabel(self, "Consumption: {0}", [lambda:self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["consumption"]], 20,138, fontSize=20),
+					inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["name"],lambda:"ON" if self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["on"] else "OFF"], 78,80, fontSize=20, condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
+					inputLabel(self, "Consumption: {0}", [lambda:self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["consumption"]], 20,138, fontSize=20, condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					
-					inputLabel(self, "{0} of {1}", [lambda:self.buttonScroll+1,lambda:len(self.rooms[self.currentRoom]["outlets"])], 160,196, fontSize=20, align=(0.5,0.5)),
+					inputLabel(self, "{0} of {1}", [lambda:self.buttonScroll+1,lambda:len(self.rooms[self.currentRoom]["outlets"])], 160,196, fontSize=20, align=(0.5,0.5), condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 				]
 			},
 			"sarah":{
@@ -237,7 +244,7 @@ class SARaH:
 				"name":"Multimedia",
 				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, [lambda:self.scrollButtons(0, absolute=True), lambda:self.changePage("house")], 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.changePage("music"), 146,10, 48,48, icon="images/Icons/musical115.png"),
 					inputButton(self, lambda:self.scrollButtons(-6), 204,10, 48,48, icon="images/Icons/left204.png"),
 					inputButton(self, lambda:self.scrollButtons(6), 262,10, 48,48, icon="images/Icons/right204.png"),
@@ -307,7 +314,7 @@ class SARaH:
 				"name":"Custom Actions",
 				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, [lambda:self.scrollButtons(0, 6, absolute=True), lambda:self.changePage("house")], 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.scrollButtons(-3, 3, self.customActions), 204,10, 48,48, icon="images/Icons/left204.png"),
 					inputButton(self, lambda:self.scrollButtons(3, 3, self.customActions), 262,10, 48,48, icon="images/Icons/right204.png"),
 				
@@ -334,16 +341,16 @@ class SARaH:
 		}
 		self.changePage("home")
 	
-	def changePage(self, page, room=None):
+	def changePage(self, page, room=None, syncAllInputs=True):
 		self.inputs = self.pages[page]["inputs"]
 		self.CurrentPage = page
 		if room != None:
 			self.changeRoom(room)
-		self.sync(syncAllInputs=True)
+		self.sync(syncAllInputs)
 			
-	def changeRoom(self, room):
+	def changeRoom(self, room, syncAllInputs=True):
 		self.currentRoom = room
-		self.sync(syncAllInputs=True)
+		self.sync(syncAllInputs)
 		
 	def scrollButtons(self, n, numButtons=6, buttons=None, absolute=False):
 		if not buttons:
@@ -496,11 +503,15 @@ class SARaH:
 		self.MQTTSend("sarah/house", mqttMsg)
 		self.MQTTSend("sarah/house", "-1,musicVolume,{0}".format(str(self.inputsValue["musicVolumeSlider"])))
 		
-	def sync(self, syncAllInputs=False):
+	def sync(self, syncAllInputs=True, resetScroll=True):
 		room = self.rooms[self.currentRoom]
 		self.inputsValue["temperatureSlider"] = room["temperature"]
 		colorWheel = self.inputsValue["RGBWheel"]
-		roomColor = colorsys.rgb_to_hsv(float(room["lights"][self.buttonScroll]["lightR"]), float(room["lights"][self.buttonScroll]["lightG"]), float(room["lights"][self.buttonScroll]["lightB"]))
+		if resetScroll:
+			self.buttonScroll = 0
+		if len(room["lights"]) > 0:
+			roomColor = colorsys.rgb_to_hsv(float(room["lights"][self.buttonScroll]["lightR"]), float(room["lights"][self.buttonScroll]["lightG"]), float(room["lights"][self.buttonScroll]["lightB"]))
+		else: roomColor = (0,0,0)
 		#print(roomColor)
 		h = roomColor[0]*(math.pi*2)
 		if h > math.pi:
