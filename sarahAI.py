@@ -256,15 +256,20 @@ class SarahAI():
 							print("normal")
 							self.say(self.pickCatchPhrase("setTemperature"))
 				elif intent == "setLight":
-					if "room" in entities and "on_off" in entities:
+					if "room" in entities:
 						#print("setLight", entities["room"][0]["value"], entities["on_off"][0]["value"])
 						numRoom = self.getRoom(entities["room"][0]["value"])
-						if entities["on_off"][0]["value"] == "on":
-							self.sendMqtt("{0},lightR,255;{0},lightG,255;{0},lightB,255".format(numRoom))
+						if "number" in entities:
+							print(int(entities["number"][0]["value"])/100*255)
+							self.sendMqtt("{0},lightR,{1};{0},lightG,{1};{0},lightB,{1}".format(numRoom, int(entities["number"][0]["value"])/100*255))
 							self.say(self.pickCatchPhrase("turnOnLight"))
-						else:
-							self.sendMqtt("{0},lightR,0;{0},lightG,0;{0},lightB,0".format(numRoom))
-							self.say(self.pickCatchPhrase("turnOffLight"))
+						elif "on_off" in entities:
+							if entities["on_off"][0]["value"] == "on":
+								self.sendMqtt("{0},lightR,255;{0},lightG,255;{0},lightB,255".format(numRoom))
+								self.say(self.pickCatchPhrase("turnOnLight"))
+							else:
+								self.sendMqtt("{0},lightR,0;{0},lightG,0;{0},lightB,0".format(numRoom))
+								self.say(self.pickCatchPhrase("turnOffLight"))
 				elif intent == "openDoor":
 					self.sendMqtt("-1,openDoor,1")
 					self.say(self.pickCatchPhrase("openDoor"))

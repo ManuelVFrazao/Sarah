@@ -9,6 +9,8 @@ import math
 import re
 
 import pygame
+#import numpy as N
+#import pygame.surfarray as surfarray
 
 import sarahAI
 import sarahMQTT
@@ -45,8 +47,15 @@ class SARaH:
 		}
 		
 		self.rooms = [
-			{"name":"Kitchen","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":0,"numOutlets":8},
-			{"name":"Living Room","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":0,"numOutlets":2},
+			{"name":"Kitchen","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Blender","on":True,"consumption":0},{"name":"TV","on":False,"consumption":0}]},
+			{"name":"Living Room","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Master bedroom","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Kid bedroom","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Guest room","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Basement","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Garage","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Attic","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			{"name":"Backyard","lightR":127,"lightG":127,"lightB":127,"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
 		]
 		
 		self.currentRoom = 0
@@ -54,254 +63,521 @@ class SARaH:
 			"lightSlider":100,
 			"temperatureSlider":20.0,
 			"RGBWheel":(0,0, 0,0),
+			"musicVolumeSlider":50
 		}
 		self.inputs = []
 		
-		self.CurrentPage = 0
-		self.pages = [
+		self.presets = [
+			
+		]
+		self.customActions = [
 			{
+				"name":"Make Coffee in the morning",
+				"action":"-1,coffee,1",
+				"conditions":"True",
+				"schedule":21600,
+				"keepWaiting":0,
+				"triggered":False,
+			},
+			{
+				"name":"Water the garden on Sundays",
+				"action":"-1,waterGarden,1",
+				"conditions":"weekday == 6",
+				"schedule":21600,
+				"keepWaiting":0,
+				"triggered":False,
+			},
+			{
+				"name":"Clean the floor if not home",
+				"action":"-1,cleanFloor,1",
+				"conditions":"home == 0",
+				"schedule":21600,
+				"keepWaiting":True,
+				"triggered":False,
+			},
+			{
+				"name":"lock the doors",
+				"action":"-1,lockDoor,0;-1,lockDoor,1",
+				"conditions":"garageDoorOpen == 0",
+				"schedule":21600,
+				"keepWaiting":True,
+				"triggered":False,
+			},
+		]
+		self.buttonScroll = 0
+		
+		self.music = {
+			"status":"Stopped",
+			"playing":False,
+			"title":"The quick brown fox jumps over the lazy dog",
+			"artist":"The quick brown fox jumps over the lazy dog",
+			"album":"The quick brown fox jumps over the lazy dog",
+			"shuffle":False,
+			"loop":False,
+		}
+		
+		self.CurrentPage = "home"
+		self.pages = {
+			#{
+				#"name":"Home",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputButton(self, lambda:self.changePage(1), 10,50, 74,74, icon="images/house139.png"),
+					#inputButton(self, lambda:self.changePage(5), 10,134, 74,74, icon="images/microphone83.png"),
+					
+					#inputButton(self, lambda:self.changePage(10), 123,50, 74,74, icon="images/key170.png"),
+					#inputButton(self, lambda:self.changePage(5), 123,134, 74,74, icon="images/circular264.png"),
+					
+					#inputButton(self, lambda:self.changePage(10), 236,50, 74,74, icon="images/musical115.png"),
+					#inputButton(self, lambda:self.changePage(5), 236,134, 74,74, icon="images/code42.png"),
+					
+					#inputLabel(self, "{0}\n{1}", [lambda:self.getTime(),lambda:self.getDate()], 40,4),
+					
+					#inputButton(self, lambda:self.changePage(8), 4,4, 32,32, icon="images/monthly5.png"),
+					#inputButton(self, lambda:self.changePage(7), 284,4, 32,32, icon="images/configuration20.png"),
+				#]
+			#},
+			#{
+				#"name":"Rooms",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					
+					#inputButton(self, lambda:self.changePage(2, 0), 10,50, 128,32),
+					#inputLabel(self, "{0}", [lambda:self.rooms[0]["name"]], 74,66, color=(0,0,0), align=(0.5,0.5)),
+					
+					#inputButton(self, lambda:self.changePage(2, 1), 182,50, 128,32),
+					#inputLabel(self, "{0}", [lambda:self.rooms[1]["name"]], 246,66, color=(0,0,0), align=(0.5,0.5)),
+				#]
+			#},
+			#{
+				#"name":"Light",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputSlider(self, "lightSlider", lambda:self.commitValues(), 100, 0, 100, 1, 248,50, 20,100, vertical=True, reversed_=True),
+					#inputGrid(self, "RGBWheel", lambda:self.commitValues(), (50,50), 10,92, 100,100, image="images/HSV.png", circle=True),
+					
+					##inputLabel(self, "{0}", [lambda:getHexFromRGB(getRGBFromColorWheel( \
+					##	self.inputsValue["RGBWheel"][2], \
+					##	self.inputsValue["RGBWheel"][3], \
+					##	self.inputsValue["lightSlider"] \
+					##	))], 52, 58, align=(0,0.5)),
+					##inputLabel(self, "{0}%", [lambda:roundTo(self.inputsValue["lightSlider"])], 52, 74, align=(0,0.5)),
+					#inputLabel(self, "{0}\n{1}%", [lambda:getHexFromRGB(getRGBFromColorWheel( \
+						#self.inputsValue["RGBWheel"][2], \
+						#self.inputsValue["RGBWheel"][3], \
+						#self.inputsValue["lightSlider"] \
+						#)),lambda:roundTo(self.inputsValue["lightSlider"])], 52, 50, align=(0,0)),
+						
+					#inputButton(self, lambda:self.inputs[1].slideTo(50,50,True,True), 10,50, 32,32, color=(255,255,255)),
+					#inputButton(self, lambda:self.inputs[0].slide(-10,True,True), 278,50, 32,32, color=(255,255,255), icon="images/up154.png"),
+					#inputButton(self, lambda:self.inputs[0].slide(10,True,True), 278,118, 32,32, color=(255,255,255), icon="images/down102.png"),
+					
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					##inputButton(self.screen, None, 44,4, 32,32),
+					#inputButton(self, lambda:self.changePage(2), 84,4, 32,32, icon="images/lightbulb52.png"),
+					#inputButton(self, lambda:self.changePage(3), 124,4, 32,32, icon="images/thermometer53.png"),
+					#inputButton(self, lambda:self.changePage(4), 164,4, 32,32, icon="images/electrical28.png"),
+					
+					##inputLabel(self, "{0}", [lambda:self.rooms[self.currentRoom]["name"]], 316, 4, align=(1,0)),
+					##inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
+					#inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["name"],lambda:self.getTime()], 316, 4, align=(1,0)),
+				#]
+			#},
+			#{
+				#"name":"Temperature",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputSlider(self, "temperatureSlider", lambda:self.commitValues(), 20, 17, 23, 0.5, 248,50, 20,100, vertical=True, reversed_=True),
+					
+					#inputLabel(self, "Current: {0}", [lambda:float(self.rooms[self.currentRoom]["currentTemperature"])], 238, 75, fontSize=32, align=(1,0.5)),
+					#inputLabel(self, "Set: {0}", [lambda:float(self.inputsValue["temperatureSlider"])], 238, 125, fontSize=32, align=(1,0.5)),
+					
+					#inputButton(self, lambda:self.inputs[0].slide(-0.5,True,True), 278,50, 32,32, color=(255,255,255), icon="images/up154.png"),
+					#inputButton(self, lambda:self.inputs[0].slide(0.5,True,True), 278,118, 32,32, color=(255,255,255), icon="images/down102.png"),
+				
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					##inputButton(self.screen, None, 44,4, 32,32),
+					#inputButton(self, lambda:self.changePage(2), 84,4, 32,32, icon="images/lightbulb52.png"),
+					#inputButton(self, lambda:self.changePage(3), 124,4, 32,32, icon="images/thermometer53.png"),
+					#inputButton(self, lambda:self.changePage(4), 164,4, 32,32, icon="images/electrical28.png"),
+					
+					##inputLabel(self, "{0}", [lambda:self.rooms[self.currentRoom]["name"]], 316, 4, align=(1,0)),
+					##inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
+					#inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["name"],lambda:self.getTime()], 316, 4, align=(1,0)),
+				#]
+			#},
+			#{
+				#"name":"Outlets",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,0), 10,50, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=1),
+					#inputLabel(self, "1a\n{0}", [lambda:self.getOutletText(self.currentRoom,0)], 26,66, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=1),
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,1), 10,92, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=2),
+					#inputLabel(self, "1b\n{0}", [lambda:self.getOutletText(self.currentRoom,1)], 26,108, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=2),
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,2), 10,134, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=3),
+					#inputLabel(self, "2a\n{0}", [lambda:self.getOutletText(self.currentRoom,2)], 26,150, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=3),
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,3), 10,176, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=4),
+					#inputLabel(self, "2b\n{0}", [lambda:self.getOutletText(self.currentRoom,3)], 26,192, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=4),
+					
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,4), 52,50, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=5),
+					#inputLabel(self, "3a\n{0}", [lambda:self.getOutletText(self.currentRoom,4)], 68,66, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=5),
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,5), 52,92, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=6),
+					#inputLabel(self, "3b\n{0}", [lambda:self.getOutletText(self.currentRoom,5)], 68,108, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=6),
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,6), 52,134, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=7),
+					#inputLabel(self, "4a\n{0}", [lambda:self.getOutletText(self.currentRoom,6)], 68,150, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=7),
+					#inputButton(self, lambda:self.toggleOutlet(self.currentRoom,7), 52,176, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=8),
+					#inputLabel(self, "4b\n{0}", [lambda:self.getOutletText(self.currentRoom,7)], 68,192, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=8),
+					
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					##inputButton(self.screen, None, 44,4, 32,32),
+					#inputButton(self, lambda:self.changePage(2), 84,4, 32,32, icon="images/lightbulb52.png"),
+					#inputButton(self, lambda:self.changePage(3), 124,4, 32,32, icon="images/thermometer53.png"),
+					#inputButton(self, lambda:self.changePage(4), 164,4, 32,32, icon="images/electrical28.png"),
+					
+					##inputLabel(self, "{0}", [lambda:self.rooms[self.currentRoom]["name"]], 316, 4, align=(1,0)),
+					##inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
+					#inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["name"],lambda:self.getTime()], 316, 4, align=(1,0)),
+				#]
+			#},
+			#{
+				#"name":"Sarah",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+				
+				
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					#inputButton(self, lambda:self.AIListen(), 84,4, 32,32, icon="images/microphone83.png"),
+					#inputButton(self, lambda:self.changePage(6), 124,4, 32,32, icon="images/two374.png"),
+					
+					#inputLabel(self, "{0}", [lambda:"Status: {0}".format(str(self.AI.out)) if str(self.AI.out) else ""], 10, 50, align=(0,0)),
+					#inputLabel(self, "{0}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else ""], 10, 82, align=(0,0), w=300),
+					
+					
+					##inputLabel(self, "SARaH", False, 316, 4, align=(1,0)),
+					##inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
+					#inputLabel(self, "SARaH\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
+				#]
+			#},
+			#{
+				#"name":"SarahOptions",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+				
+				
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					#inputButton(self, lambda:self.changePage(5), 84,4, 32,32, icon="images/microphone83.png"),
+					
+					#inputButton(self, lambda:self.AIKeepListening(), 10,50, 32,32, icon="images/right204.png"),
+					#inputButton(self, lambda:self.AIKeepTriggered(), 10,92, 32,32, icon="images/right204.png"),
+					#inputButton(self, lambda:self.AIIsTriggered(), 10,134, 32,32, icon="images/right204.png"),
+					
+					#inputLabel(self, "Autolisten:\n{0}", [lambda:str(self.AIThread.keepListening)], 52, 50, align=(0,0)),
+					#inputLabel(self, "Autotrigger:\n{0}", [lambda:str(self.AI.keepListening)], 52, 92, align=(0,0)),
+					#inputLabel(self, "Triggered:\n{0}", [lambda:str(self.AI.isTriggered)], 52, 134, align=(0,0)),
+					
+					##inputLabel(self, "SARaH", False, 316, 4, align=(1,0)),
+					##inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
+					#inputLabel(self, "SARaH\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
+				#]
+			#},
+			#{
+				#"name":"Config",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+				
+				
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					
+					
+					#inputLabel(self, "Options\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
+				#]
+			#},
+			#{
+				#"name":"Calendar",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+				
+					#inputLabel(self, "{0}", [lambda:self.getTime()], 160, 50, fontSize=72, align=(0.5,0)),
+					#inputLabel(self, "{0}", [lambda:self.getDate()], 160, 130, fontSize=38, align=(0.5,0)),
+					#inputLabel(self, "{0}", [lambda:self.getFullDate()], 160, 165, fontSize=18, align=(0.5,0)),
+				
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					
+					
+					#inputButton(self, lambda:self.changePage(9), 284,4, 32,32, icon="images/configuration20.png"),
+				#]
+			#},
+			#{
+				#"name":"CalendarOptions",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					#inputButton(self, lambda:self.changePage(8), 284,4, 32,32, icon="images/monthly5.png"),
+				#]
+			#},
+			#{
+				#"name":"Security",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					#inputLabel(self, "Security\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
+					
+					#inputButton(self, lambda:self.changePage(11), 10,50, 32,32, icon="images/nine19.png"),
+				#]
+			#},
+			#{
+				#"name":"Keypad",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputLabel(self, "{0}\n{1}", [lambda:self.getTime(),lambda:self.codeDigits()], 160, 4, align=(0.5,0)),
+					
+					#inputButton(self, lambda:self.codeDigit(1), 10,50, 67,53),
+					#inputButton(self, lambda:self.codeDigit(2), 88,50, 67,53),
+					#inputButton(self, lambda:self.codeDigit(3), 165,50, 67,53),
+					
+					#inputButton(self, lambda:self.codeDigit(4), 10,113, 67,53),
+					#inputButton(self, lambda:self.codeDigit(5), 88,113, 67,53),
+					#inputButton(self, lambda:self.codeDigit(6), 165,113, 67,53),
+					
+					#inputButton(self, lambda:self.codeDigit(7), 10,176, 67,53),
+					#inputButton(self, lambda:self.codeDigit(8), 88,176, 67,53),
+					#inputButton(self, lambda:self.codeDigit(9), 165,176, 67,53),
+					
+					#inputButton(self, lambda:self.codeCancel(), 243,50, 67,53, color=(255,0,0)),
+					#inputButton(self, lambda:self.codeDigit(0), 243,113, 67,53),
+					#inputButton(self, lambda:self.codeConfirm(), 243,176, 67,53, color=(0,255,0)),
+				#]
+			#},
+			#{
+				#"name":"Music",
+				#"background":pygame.image.load("images/background.png").convert_alpha(),
+				#"inputs":[
+					#inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					#inputLabel(self, "Music\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
+				#]
+			#},
+			"home":{
 				"name":"Home",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+				"background":pygame.image.load("images/Backgrounds/3x1.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.changePage(1), 10,50, 74,74, icon="images/house139.png"),
-					inputButton(self, lambda:self.changePage(5), 10,134, 74,74, icon="images/microphone83.png"),
+					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.changePage("sarah"), 68,10, 48,48, icon="images/Icons/microphone83.png"),
+					inputButton(self, lambda:self.changePage("home"), 126,10, 48,48, icon="images/Icons/key170.png"),
+					inputButton(self, lambda:self.changePage("home"), 262,10, 48,48, icon="images/Icons/configuration20.png"),
 					
-					inputButton(self, lambda:self.changePage(10), 123,50, 74,74, icon="images/key170.png"),
-					inputButton(self, lambda:self.changePage(5), 123,134, 74,74, icon="images/circular264.png"),
+					inputLabel(self, "{0}", [lambda:self.getTime()], 160, 70, fontSize=72, align=(0.5,0)),
+					inputLabel(self, "{0}", [lambda:self.getDate()], 160, 150, fontSize=38, align=(0.5,0)),
+					inputLabel(self, "{0}", [lambda:self.getFullDate()], 160, 185, fontSize=18, align=(0.5,0)),
 					
-					inputButton(self, lambda:self.changePage(10), 236,50, 74,74, icon="images/musical115.png"),
-					inputButton(self, lambda:self.changePage(5), 236,134, 74,74, icon="images/code42.png"),
-					
-					inputLabel(self, "{0}\n{1}", [lambda:self.getTime(),lambda:self.getDate()], 40,4),
-					
-					inputButton(self, lambda:self.changePage(8), 4,4, 32,32, icon="images/monthly5.png"),
-					inputButton(self, lambda:self.changePage(7), 284,4, 32,32, icon="images/configuration20.png"),
 				]
 			},
-			{
+			"house":{
+				"name":"House",
+				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, [lambda:self.changePage("customActions"),lambda:self.scrollButtons(0, 3, absolute=True)], 146,10, 48,48, icon="images/Icons/code42.png"),
+					inputButton(self, lambda:self.changePage("multimedia"), 204,10, 48,48, icon="images/Icons/musical115.png"),
+					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 262,10, 48,48, icon="images/Icons/button10.png"),
+					
+					inputTextButton(self, lambda:self.changePage("house"), 20,80, 200,48, "Hello world")
+				]
+			},
+			"rooms":{
 				"name":"Rooms",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
+					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.scrollButtons(-6), 204,10, 48,48, icon="images/Icons/left204.png"),
+					inputButton(self, lambda:self.scrollButtons(6), 262,10, 48,48, icon="images/Icons/right204.png"),
 					
-					inputButton(self, lambda:self.changePage(2, 0), 10,50, 128,32),
-					inputLabel(self, "{0}", [lambda:self.rooms[0]["name"]], 74,66, color=(0,0,0), align=(0.5,0.5)),
+					inputTextButton(self, [lambda:self.changePage("lights", self.buttonScroll),lambda:self.scrollButtons(0, 1, absolute=True)], 20,80, 135,40, "{0}", [lambda:self.rooms[self.buttonScroll]["name"]], condition=lambda:self.buttonScroll < len(self.rooms)),
+					inputTextButton(self, [lambda:self.changePage("lights", self.buttonScroll+2),lambda:self.scrollButtons(0, 1, absolute=True)], 20,130, 135,40, "{0}", [lambda:self.rooms[self.buttonScroll+2]["name"]], condition=lambda:self.buttonScroll+2 < len(self.rooms)),
+					inputTextButton(self, [lambda:self.changePage("lights", self.buttonScroll+4),lambda:self.scrollButtons(0, 1, absolute=True)], 20,180, 135,40, "{0}", [lambda:self.rooms[self.buttonScroll+4]["name"]], condition=lambda:self.buttonScroll+4 < len(self.rooms)),
 					
-					inputButton(self, lambda:self.changePage(2, 1), 182,50, 128,32),
-					inputLabel(self, "{0}", [lambda:self.rooms[1]["name"]], 246,66, color=(0,0,0), align=(0.5,0.5)),
+					inputTextButton(self, [lambda:self.changePage("lights", self.buttonScroll+1),lambda:self.scrollButtons(0, 1, absolute=True)], 165,80, 135,40, "{0}", [lambda:self.rooms[self.buttonScroll+1]["name"]], condition=lambda:self.buttonScroll+1 < len(self.rooms)),
+					inputTextButton(self, [lambda:self.changePage("lights", self.buttonScroll+3),lambda:self.scrollButtons(0, 1, absolute=True)], 165,130, 135,40, "{0}", [lambda:self.rooms[self.buttonScroll+3]["name"]], condition=lambda:self.buttonScroll+3 < len(self.rooms)),
+					inputTextButton(self, [lambda:self.changePage("lights", self.buttonScroll+5),lambda:self.scrollButtons(0, 1, absolute=True)], 165,180, 135,40, "{0}", [lambda:self.rooms[self.buttonScroll+5]["name"]], condition=lambda:self.buttonScroll+5 < len(self.rooms)),
+				
+					inputLabel(self, "{0} of {1}", [lambda:self.buttonScroll//6+1,lambda:(len(self.rooms)-1)//6+1], 131, 40, fontSize=28, align=(0.5,0.5)),
 				]
 			},
-			{
-				"name":"Light",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+			"lights":{
+				"name":"Lights",
+				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
 				"inputs":[
-					inputSlider(self, "lightSlider", lambda:self.commitValues(), 100, 0, 100, 1, 248,50, 20,100, vertical=True, reversed_=True),
-					inputGrid(self, "RGBWheel", lambda:self.commitValues(), (50,50), 10,92, 100,100, image="images/HSV.png", circle=True),
+					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.changePage("lights"), 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
+					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
+					inputButton(self, lambda:self.changePage("outlets"), 262,10, 48,48, icon="images/Icons/electrical28.png"),
+				
+					inputSlider(self, "lightSlider", lambda:self.commitValues(), 100, 0, 100, 1, 222,80, 20,100, vertical=True, reversed_=True),
 					
-					#inputLabel(self, "{0}", [lambda:getHexFromRGB(getRGBFromColorWheel( \
-					#	self.inputsValue["RGBWheel"][2], \
-					#	self.inputsValue["RGBWheel"][3], \
-					#	self.inputsValue["lightSlider"] \
-					#	))], 52, 58, align=(0,0.5)),
-					#inputLabel(self, "{0}%", [lambda:roundTo(self.inputsValue["lightSlider"])], 52, 74, align=(0,0.5)),
+					inputGrid(self, "RGBWheel", lambda:self.commitValues(), (50,50), 20,80, 100,100, image="images/HSV.png", circle=True),
+					
 					inputLabel(self, "{0}\n{1}%", [lambda:getHexFromRGB(getRGBFromColorWheel( \
 						self.inputsValue["RGBWheel"][2], \
 						self.inputsValue["RGBWheel"][3], \
 						self.inputsValue["lightSlider"] \
-						)),lambda:roundTo(self.inputsValue["lightSlider"])], 52, 50, align=(0,0)),
-						
-					inputButton(self, lambda:self.inputs[1].slideTo(50,50,True,True), 10,50, 32,32, color=(255,255,255)),
-					inputButton(self, lambda:self.inputs[0].slide(-10,True,True), 278,50, 32,32, color=(255,255,255), icon="images/up154.png"),
-					inputButton(self, lambda:self.inputs[0].slide(10,True,True), 278,118, 32,32, color=(255,255,255), icon="images/down102.png"),
+						)),lambda:roundTo(self.inputsValue["lightSlider"])], 202, 80, fontSize=20, align=(1,0)),
 					
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					#inputButton(self.screen, None, 44,4, 32,32),
-					inputButton(self, lambda:self.changePage(2), 84,4, 32,32, icon="images/lightbulb52.png"),
-					inputButton(self, lambda:self.changePage(3), 124,4, 32,32, icon="images/thermometer53.png"),
-					inputButton(self, lambda:self.changePage(4), 164,4, 32,32, icon="images/electrical28.png"),
+					inputButton(self, lambda:self.inputs[4].slide(-10,True,True), 252,80, 48,48, icon="images/Icons/up154.png"),
+					inputButton(self, lambda:self.inputs[4].slide(10,True,True), 252,132, 48,48, icon="images/Icons/down102.png"),
 					
-					#inputLabel(self, "{0}", [lambda:self.rooms[self.currentRoom]["name"]], 316, 4, align=(1,0)),
-					#inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
-					inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["name"],lambda:self.getTime()], 316, 4, align=(1,0)),
 				]
 			},
-			{
+			"temperature":{
 				"name":"Temperature",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
 				"inputs":[
-					inputSlider(self, "temperatureSlider", lambda:self.commitValues(), 20, 17, 23, 0.5, 248,50, 20,100, vertical=True, reversed_=True),
-					
-					inputLabel(self, "Current: {0}", [lambda:float(self.rooms[self.currentRoom]["currentTemperature"])], 238, 75, fontSize=32, align=(1,0.5)),
-					inputLabel(self, "Set: {0}", [lambda:float(self.inputsValue["temperatureSlider"])], 238, 125, fontSize=32, align=(1,0.5)),
-					
-					inputButton(self, lambda:self.inputs[0].slide(-0.5,True,True), 278,50, 32,32, color=(255,255,255), icon="images/up154.png"),
-					inputButton(self, lambda:self.inputs[0].slide(0.5,True,True), 278,118, 32,32, color=(255,255,255), icon="images/down102.png"),
+					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.changePage("lights"), 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
+					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
+					inputButton(self, lambda:self.changePage("outlets"), 262,10, 48,48, icon="images/Icons/electrical28.png"),
 				
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					#inputButton(self.screen, None, 44,4, 32,32),
-					inputButton(self, lambda:self.changePage(2), 84,4, 32,32, icon="images/lightbulb52.png"),
-					inputButton(self, lambda:self.changePage(3), 124,4, 32,32, icon="images/thermometer53.png"),
-					inputButton(self, lambda:self.changePage(4), 164,4, 32,32, icon="images/electrical28.png"),
+					inputSlider(self, "temperatureSlider", lambda:self.commitValues(), 20, 17, 23, 0.5, 222,80, 20,100, vertical=True, reversed_=True),
 					
-					#inputLabel(self, "{0}", [lambda:self.rooms[self.currentRoom]["name"]], 316, 4, align=(1,0)),
-					#inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
-					inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["name"],lambda:self.getTime()], 316, 4, align=(1,0)),
+					inputLabel(self, "Current: {0}\nSet: {1}", [lambda:float(self.rooms[self.currentRoom]["currentTemperature"]),lambda:float(self.inputsValue["temperatureSlider"])], 202, 80, fontSize=28, align=(1,0)),
+					
+					inputButton(self, lambda:self.inputs[4].slide(-0.5,True,True), 252,80, 48,48, icon="images/Icons/up154.png"),
+					inputButton(self, lambda:self.inputs[4].slide(0.5,True,True), 252,132, 48,48, icon="images/Icons/down102.png"),
+					
 				]
 			},
-			{
+			"outlets":{
 				"name":"Outlets",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,0), 10,50, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=1),
-					inputLabel(self, "1a\n{0}", [lambda:self.getOutletText(self.currentRoom,0)], 26,66, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=1),
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,1), 10,92, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=2),
-					inputLabel(self, "1b\n{0}", [lambda:self.getOutletText(self.currentRoom,1)], 26,108, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=2),
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,2), 10,134, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=3),
-					inputLabel(self, "2a\n{0}", [lambda:self.getOutletText(self.currentRoom,2)], 26,150, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=3),
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,3), 10,176, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=4),
-					inputLabel(self, "2b\n{0}", [lambda:self.getOutletText(self.currentRoom,3)], 26,192, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=4),
+					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.changePage("lights"), 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
+					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
+					inputButton(self, lambda:self.changePage("outlets"), 262,10, 48,48, icon="images/Icons/electrical28.png"),
+				
+					inputButton(self, lambda:self.toggleOutlet(self.currentRoom, self.buttonScroll, commit=True), 20,80, 48,48, icon="images/Icons/electrical28.png"),
+					inputButton(self, lambda:self.scrollButtons(-1, 1, self.rooms[self.currentRoom]["outlets"]), 20,172, 48,48, icon="images/Icons/left204.png"),
+					inputButton(self, lambda:self.scrollButtons(1, 1, self.rooms[self.currentRoom]["outlets"]), 252,172, 48,48, icon="images/Icons/right204.png"),
 					
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,4), 52,50, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=5),
-					inputLabel(self, "3a\n{0}", [lambda:self.getOutletText(self.currentRoom,4)], 68,66, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=5),
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,5), 52,92, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=6),
-					inputLabel(self, "3b\n{0}", [lambda:self.getOutletText(self.currentRoom,5)], 68,108, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=6),
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,6), 52,134, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=7),
-					inputLabel(self, "4a\n{0}", [lambda:self.getOutletText(self.currentRoom,6)], 68,150, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=7),
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom,7), 52,176, 32,32, condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=8),
-					inputLabel(self, "4b\n{0}", [lambda:self.getOutletText(self.currentRoom,7)], 68,192, align=(0.5,0.5), color=(0,0,0), condition=lambda:self.rooms[self.currentRoom]["numOutlets"]>=8),
+					inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["name"],lambda:"ON" if self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["on"] else "OFF"], 78,80, fontSize=20),
+					inputLabel(self, "Consumption: {0}", [lambda:self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["consumption"]], 20,138, fontSize=20),
 					
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					#inputButton(self.screen, None, 44,4, 32,32),
-					inputButton(self, lambda:self.changePage(2), 84,4, 32,32, icon="images/lightbulb52.png"),
-					inputButton(self, lambda:self.changePage(3), 124,4, 32,32, icon="images/thermometer53.png"),
-					inputButton(self, lambda:self.changePage(4), 164,4, 32,32, icon="images/electrical28.png"),
-					
-					#inputLabel(self, "{0}", [lambda:self.rooms[self.currentRoom]["name"]], 316, 4, align=(1,0)),
-					#inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
-					inputLabel(self, "{0}\n{1}", [lambda:self.rooms[self.currentRoom]["name"],lambda:self.getTime()], 316, 4, align=(1,0)),
+					inputLabel(self, "{0} of {1}", [lambda:self.buttonScroll+1,lambda:len(self.rooms[self.currentRoom]["outlets"])], 160,196, fontSize=20, align=(0.5,0.5)),
 				]
 			},
-			{
+			"sarah":{
 				"name":"Sarah",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+				"background":pygame.image.load("images/Backgrounds/1x1.png").convert_alpha(),
 				"inputs":[
-				
-				
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					inputButton(self, lambda:self.AIListen(), 84,4, 32,32, icon="images/microphone83.png"),
-					inputButton(self, lambda:self.changePage(6), 124,4, 32,32, icon="images/two374.png"),
+					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.AIListen(), 262,10, 48,48, icon="images/Icons/microphone83.png"),
 					
-					inputLabel(self, "{0}", [lambda:"Status: {0}".format(str(self.AI.out)) if str(self.AI.out) else ""], 10, 50, align=(0,0)),
-					inputLabel(self, "{0}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else ""], 10, 82, align=(0,0), w=300),
+					inputLabel(self, "Status:\n{0}", [lambda:"{0}".format(str(self.AI.out)) if str(self.AI.out) else "Idle"], 160, 40, align=(0.5,0.5)),
+					inputLabel(self, "{0}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else ""], 20, 80, w=280, align=(0,0)),
 					
-					
-					#inputLabel(self, "SARaH", False, 316, 4, align=(1,0)),
-					#inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
-					inputLabel(self, "SARaH\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
 				]
 			},
-			{
-				"name":"SarahOptions",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+			"multimedia":{
+				"name":"Multimedia",
+				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
 				"inputs":[
-				
-				
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					inputButton(self, lambda:self.changePage(5), 84,4, 32,32, icon="images/microphone83.png"),
-					
-					inputButton(self, lambda:self.AIKeepListening(), 10,50, 32,32, icon="images/right204.png"),
-					inputButton(self, lambda:self.AIKeepTriggered(), 10,92, 32,32, icon="images/right204.png"),
-					inputButton(self, lambda:self.AIIsTriggered(), 10,134, 32,32, icon="images/right204.png"),
-					
-					inputLabel(self, "Autolisten:\n{0}", [lambda:str(self.AIThread.keepListening)], 52, 50, align=(0,0)),
-					inputLabel(self, "Autotrigger:\n{0}", [lambda:str(self.AI.keepListening)], 52, 92, align=(0,0)),
-					inputLabel(self, "Triggered:\n{0}", [lambda:str(self.AI.isTriggered)], 52, 134, align=(0,0)),
-					
-					#inputLabel(self, "SARaH", False, 316, 4, align=(1,0)),
-					#inputLabel(self, "{0}", [lambda:self.getTime()], 316, 24, align=(1,0)),
-					inputLabel(self, "SARaH\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
+					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.changePage("music"), 146,10, 48,48, icon="images/Icons/musical115.png"),
+					inputButton(self, lambda:self.scrollButtons(-6), 204,10, 48,48, icon="images/Icons/left204.png"),
+					inputButton(self, lambda:self.scrollButtons(6), 262,10, 48,48, icon="images/Icons/right204.png"),
 				]
 			},
-			{
-				"name":"Config",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
-				"inputs":[
-				
-				
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					
-					
-					inputLabel(self, "Options\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
-				]
-			},
-			{
-				"name":"Calendar",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
-				"inputs":[
-				
-					inputLabel(self, "{0}", [lambda:self.getTime()], 160, 50, fontSize=72, align=(0.5,0)),
-					inputLabel(self, "{0}", [lambda:self.getDate()], 160, 130, fontSize=38, align=(0.5,0)),
-					inputLabel(self, "{0}", [lambda:self.getFullDate()], 160, 165, fontSize=18, align=(0.5,0)),
-				
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					
-					
-					inputButton(self, lambda:self.changePage(9), 284,4, 32,32, icon="images/configuration20.png"),
-				]
-			},
-			{
-				"name":"CalendarOptions",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
-				"inputs":[
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					inputButton(self, lambda:self.changePage(8), 284,4, 32,32, icon="images/monthly5.png"),
-				]
-			},
-			{
-				"name":"Security",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
-				"inputs":[
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					inputLabel(self, "Security\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
-					
-					inputButton(self, lambda:self.changePage(11), 10,50, 32,32, icon="images/nine19.png"),
-				]
-			},
-			{
-				"name":"Keypad",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
-				"inputs":[
-					inputLabel(self, "{0}\n{1}", [lambda:self.getTime(),lambda:self.codeDigits()], 160, 4, align=(0.5,0)),
-					
-					inputButton(self, lambda:self.codeDigit(1), 10,50, 67,53),
-					inputButton(self, lambda:self.codeDigit(2), 88,50, 67,53),
-					inputButton(self, lambda:self.codeDigit(3), 165,50, 67,53),
-					
-					inputButton(self, lambda:self.codeDigit(4), 10,113, 67,53),
-					inputButton(self, lambda:self.codeDigit(5), 88,113, 67,53),
-					inputButton(self, lambda:self.codeDigit(6), 165,113, 67,53),
-					
-					inputButton(self, lambda:self.codeDigit(7), 10,176, 67,53),
-					inputButton(self, lambda:self.codeDigit(8), 88,176, 67,53),
-					inputButton(self, lambda:self.codeDigit(9), 165,176, 67,53),
-					
-					inputButton(self, lambda:self.codeCancel(), 243,50, 67,53, color=(255,0,0)),
-					inputButton(self, lambda:self.codeDigit(0), 243,113, 67,53),
-					inputButton(self, lambda:self.codeConfirm(), 243,176, 67,53, color=(0,255,0)),
-				]
-			},
-			{
+			"music":{
 				"name":"Music",
-				"background":pygame.image.load("images/background.png").convert_alpha(),
+				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.changePage(0), 4,4, 32,32, icon="images/house139.png"),
-					inputLabel(self, "Music\n{0}", [lambda:self.getTime()], 316, 4, align=(1,0)),
+					inputButton(self, lambda:self.changePage("multimedia"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.inputs[3].slide(-10,True,True), 204,10, 48,48, icon="images/Icons/down102.png"),
+					inputButton(self, lambda:self.inputs[3].slide(10,True,True), 262,10, 48,48, icon="images/Icons/up154.png"),
+				
+					inputSlider(self, "musicVolumeSlider", lambda:self.commitValues(), 100, 0, 100, 1, 78,20, 106,20, vertical=False, reversed_=False),
+					inputLabel(self, "Volume: {0}%", [lambda:self.inputsValue["musicVolumeSlider"]], 78,50),
+					
+					inputButton(self, [lambda:self.setMusicShuffle(1)], 20,172, 48,48, icon="images/Icons/shuffle21.png", condition=lambda:self.music["shuffle"]==False),
+					inputButton(self, [lambda:self.setMusicShuffle(0)], 20,172, 48,48, icon="images/Icons/shuffle21.png", condition=lambda:self.music["shuffle"]==True),
+					
+					inputButton(self, [lambda:self.setMusicLoop(1)], 78,172, 48,48, icon="images/Icons/actualization.png", condition=lambda:self.music["loop"]==False),
+					inputButton(self, [lambda:self.setMusicLoop(0)], 78,172, 48,48, icon="images/Icons/actualization.png", condition=lambda:self.music["loop"]==True),
+					
+					inputButton(self, [lambda:self.setMusicSeek(-1)], 136,172, 48,48, icon="images/Icons/rewind43.png"),
+					
+					inputButton(self, [lambda:self.setMusicStatus(1)], 194,172, 48,48, icon="images/Icons/arrow626.png", condition=lambda:self.music["playing"]==False),
+					inputButton(self, [lambda:self.setMusicStatus(2)], 194,172, 48,48, icon="images/Icons/pause43.png", condition=lambda:self.music["playing"]==True),
+					
+					inputButton(self, [lambda:self.setMusicSeek(1)], 252,172, 48,48, icon="images/Icons/fast41.png"),
+					
+					inputLabel(self, "{0}\n{1}\n{2}", [lambda:self.music["title"],lambda:self.music["artist"],lambda:self.music["album"]], 20,80, fontSize=28, maxChar=20)
+					
 				]
 			},
-		]
-		self.changePage(0)
+			"mediaRemote":{
+				"name":"Remote",
+				"background":pygame.image.load("images/Backgrounds/1x0.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+				]
+			},
+			"keypad":{
+				"name":"Keypad",
+				"background":pygame.image.load("images/Backgrounds/0x0.png").convert_alpha(),
+				"inputs":[
+					inputLabel(self, "{0}", [lambda:self.codeDigits()], 160, 40, fontSize=32, align=(0.5,0.5)),
+					
+					inputTextButton(self, lambda:self.codeDigit(1), 20,80, 48,40, "1"),
+					inputTextButton(self, lambda:self.codeDigit(4), 20,130, 48,40, "4"),
+					inputTextButton(self, lambda:self.codeDigit(7), 20,180, 48,40, "7"),
+					
+					inputTextButton(self, lambda:self.codeDigit(2), 78,80, 48,40, "2"),
+					inputTextButton(self, lambda:self.codeDigit(5), 78,130, 48,40, "5"),
+					inputTextButton(self, lambda:self.codeDigit(8), 78,180, 48,40, "8"),
+					
+					inputTextButton(self, lambda:self.codeDigit(3), 136,80, 48,40, "3"),
+					inputTextButton(self, lambda:self.codeDigit(6), 136,130, 48,40, "6"),
+					inputTextButton(self, lambda:self.codeDigit(9), 136,180, 48,40, "9"),
+					
+					inputTextButton(self, lambda:self.codeDigit(0), 194,80, 48,40, "0"),
+					inputTextButton(self, lambda:self.codeConfirm(), 194,130, 106,90, "Enter"),
+					
+					inputTextButton(self, lambda:self.codeCancel(), 252,80, 48,40, "Back"),
+				
+				]
+			},
+			"customActions":{
+				"name":"Custom Actions",
+				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.scrollButtons(-3, 3, self.customActions), 204,10, 48,48, icon="images/Icons/left204.png"),
+					inputButton(self, lambda:self.scrollButtons(3, 3, self.customActions), 262,10, 48,48, icon="images/Icons/right204.png"),
+				
+					inputTextButton(self, lambda:self.triggerCustomActions(self.buttonScroll), 20,80, 230,40, "{0}", [lambda:self.customActions[self.buttonScroll]["name"]], maxChar=27, condition=lambda:len(self.customActions)>self.buttonScroll),
+					inputButton(self, lambda:self.editCustomActions(self.buttonScroll), 260,80, 40,40, icon="images/Icons/configuration20.png", condition=lambda:len(self.customActions)>self.buttonScroll),
+				
+					inputTextButton(self, lambda:self.triggerCustomActions(self.buttonScroll+1), 20,130, 230,40, "{0}", [lambda:self.customActions[self.buttonScroll+1]["name"]], maxChar=27, condition=lambda:len(self.customActions)>self.buttonScroll+1),
+					inputButton(self, lambda:self.editCustomActions(self.buttonScroll+1), 260,130, 40,40, icon="images/Icons/configuration20.png", condition=lambda:len(self.customActions)>self.buttonScroll+1),
+				
+					inputTextButton(self, lambda:self.triggerCustomActions(self.buttonScroll+2), 20,180, 230,40, "{0}", [lambda:self.customActions[self.buttonScroll+2]["name"]], maxChar=27, condition=lambda:len(self.customActions)>self.buttonScroll+2),
+					inputButton(self, lambda:self.editCustomActions(self.buttonScroll+2), 260,180, 40,40, icon="images/Icons/configuration20.png", condition=lambda:len(self.customActions)>self.buttonScroll+2),
+					
+					inputLabel(self, "{0} of {1}", [lambda:self.buttonScroll//3+1,lambda:(len(self.customActions)-1)//3+1], 131, 40, fontSize=28, align=(0.5,0.5)),
+				]
+			},
+			"customActionsInfo":{
+				"name":"Custom Actions Info",
+				"background":pygame.image.load("images/Backgrounds/1x1.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.deleteCustomAction(), 262,10, 48,48, icon="images/Icons/cross100.png"),
+				]
+			},
+		}
+		self.changePage("home")
 	
-	def changePage(self, page=0, room=None):
+	def changePage(self, page, room=None):
 		self.inputs = self.pages[page]["inputs"]
 		self.CurrentPage = page
 		if room != None:
@@ -311,6 +587,18 @@ class SARaH:
 	def changeRoom(self, room):
 		self.currentRoom = room
 		self.sync(syncAllInputs=True)
+		
+	def scrollButtons(self, n, numButtons=6, buttons=None, absolute=False):
+		if not buttons:
+			buttons = self.rooms
+		if absolute:
+			self.buttonScroll = 0
+		self.buttonScroll = max(min(self.buttonScroll+n,len(buttons)-1),0)//numButtons*numButtons
+		print(self.buttonScroll)
+	
+	def preset(self, num):
+		print(num)
+		return
 	
 	def getTime(self):
 		h = str(datetime.datetime.now().hour)
@@ -365,13 +653,13 @@ class SARaH:
 				self.passCode["state"] = "normal"
 				
 				#disarm the system
-				#self.MQTTSend("sarah/house", "room=-1,disarm=1")
+				#self.MQTTSend("sarah/house", "-1,disarm,1")
 				
 				#Bad idea to send a disarm signal over the network, The
 				#security system control panel will be connected through
 				#serial
 				
-				self.changePage(0)
+				self.changePage("home")
 			else:
 				self.passCode["code"] = ""
 				self.passCode["attempts"] = self.passCode["attempts"] + 1
@@ -423,6 +711,7 @@ class SARaH:
 		
 	def draw(self):
 		#print("draw")
+		self.screen.fill((0,0,0))
 		#pygame.draw.rect(self.screen, (0, 128, 255), pygame.Rect(30, 30, 60, 60))
 		if "background" in self.pages[self.CurrentPage]:
 			self.screen.blit(self.pages[self.CurrentPage]["background"], (0,0))
@@ -448,6 +737,7 @@ class SARaH:
 		
 		print(mqttMsg)
 		self.MQTTSend("sarah/house", mqttMsg)
+		self.MQTTSend("sarah/house", "-1,musicVolume,{0}".format(str(self.inputsValue["musicVolumeSlider"])))
 		
 	def sync(self, syncAllInputs=False):
 		room = self.rooms[self.currentRoom]
@@ -479,7 +769,7 @@ class SARaH:
 			self.commitValues()
 		if sync:
 			self.sync(True)
-			
+
 	def AIKeepListening(self):
 		self.AIThread.keepListening = not self.AIThread.keepListening
 		
@@ -515,44 +805,100 @@ class SARaH:
 					self.turnOutletOn(int(command[0]), int(command[2]), commit=False)
 				if command[1] == "outletOff":
 					self.turnOutletOff(int(command[0]), int(command[2]), commit=False)
-				if command[1] == "outletToggle":
-					self.toggleOutlet(int(command[0]), int(command[2]), commit=False)
+				if command[1] == "outletConsumption":
+					self.setOutletConsumption(int(command[0]), int(command[2]), float(command[3]))
+			else:
+				if command[1] == "musicVolume":
+					self.inputsValue["musicVolumeSlider"] = int(command[2])
+					self.sync(syncAllInputs=True)
+				if command[1] == "musicStatus":
+					if int(command[2]) == 0:
+						self.music["status"] = "Stopped"
+						self.music["playing"] = False
+					elif int(command[2]) == 1:
+						self.music["status"] = "Playing"
+						self.music["playing"] = True
+					elif int(command[2]) == 2:
+						self.music["status"] = "Paused"
+						self.music["playing"] = False
+					self.sync(syncAllInputs=True)
+				if command[1] == "musicLoop":
+					self.music["loop"] = int(command[2]) == 1
+					self.sync(syncAllInputs=True)
+				if command[1] == "musicShuffle":
+					self.music["shuffle"] = int(command[2]) == 1
+					self.sync(syncAllInputs=True)
+				if command[1] == "musicTitle":
+					t = str(command[2])
+					for i in range(3, len(command)):
+						t = t+","+str(command[i])
+					self.music["title"] = str(t)
+					self.sync(syncAllInputs=True)
+				if command[1] == "musicArtist":
+					t = str(command[2])
+					for i in range(3, len(command)):
+						t = t+","+str(command[i])
+					self.music["title"] = str(t)
+					self.sync(syncAllInputs=True)
+				if command[1] == "musicAlbum":
+					t = str(command[2])
+					for i in range(3, len(command)):
+						t = t+","+str(command[i])
+					self.music["title"] = str(t)
+					self.sync(syncAllInputs=True)
 		self.sync(syncAllInputs=True)
-		
 		
 	def MQTTSend(self, topic, msg):
 		self.MQTT.client.publish(topic, msg)
 		
-	def isOutletOn(self, room, outlet):
-		return (self.rooms[room]["outlets"]%(2**(outlet+1)))/(2**outlet) >= 1
-	
 	def turnOutletOn(self, room, outlet, commit=True):
-		if not self.isOutletOn(room, outlet):
-			self.rooms[room]["outlets"] = self.rooms[room]["outlets"]+(2**outlet)
-			if commit:
-				self.MQTTSend("sarah/house", "{0},outletOn,{1}".format(room,outlet))
-				
+		self.rooms[room]["outlets"][outlet]["on"] = True
+		if commit:
+			self.MQTTSend("sarah/house", "{0},outletOn,{1}".format(room,outlet))
+			
 	def turnOutletOff(self, room, outlet, commit=True):
-		if self.isOutletOn(room, outlet):
-			self.rooms[room]["outlets"] = self.rooms[room]["outlets"]-(2**outlet)
-			if commit:
-				self.MQTTSend("sarah/house", "{0},outletOff,{1}".format(room,outlet))
-	
+		self.rooms[room]["outlets"][outlet]["on"] = False
+		if commit:
+			self.MQTTSend("sarah/house", "{0},outletOff,{1}".format(room,outlet))
+				
 	def toggleOutlet(self, room, outlet, commit=True):
-		if self.isOutletOn(room, outlet):
-			self.turnOutletOff(room, outlet)
-			if commit:
-				self.MQTTSend("sarah/house", "{0},outletOff,{1}".format(room,outlet))
-		else:
-			self.turnOutletOn(room, outlet)
-			if commit:
+		self.rooms[room]["outlets"][outlet]["on"] = not self.rooms[room]["outlets"][outlet]["on"]
+		if commit:
+			if self.rooms[room]["outlets"][outlet]["on"]:
 				self.MQTTSend("sarah/house", "{0},outletOn,{1}".format(room,outlet))
+			else:
+				self.MQTTSend("sarah/house", "{0},outletOff,{1}".format(room,outlet))
+				
+	def setOutletConsumption(self, room, outlet, consumption=0):
+		self.rooms[room]["outlets"][outlet]["consumption"] = consumption
+		
+	def setMusicStatus(self, status):
+		self.MQTTSend("sarah/house", "-1,musicStatus,{0}".format(status))
+		
+	def setMusicLoop(self, loop):
+		self.MQTTSend("sarah/house", "-1,musicLoop,{0}".format(loop))
+		
+	def setMusicShuffle(self, shuffle):
+		self.MQTTSend("sarah/house", "-1,musicShuffle,{0}".format(shuffle))
 	
-	def getOutletText(self, room, outlet):
-		if self.isOutletOn(room, outlet):
-			return "On"
-		else:
-			return "Off"
+	def setMusicSeek(self, seek):
+		self.MQTTSend("sarah/house", "-1,musicSeek,{0}".format(seek))
+		
+	def createCustomAction(self, name, action, conditions, schedule):
+		self.customActions = self.customActions + [
+			{
+				"name":name,
+				"action":action,
+				"conditions":eval("lambda:"+str(conditions)),
+				"schedule":schedule,
+			},
+		]
+		
+	def triggerCustomActions(self, num):
+		return
+		
+	def editCustomActions(self, num):
+		return
 	
 class inputSlider():
 	def __init__(self, class_, var, action=None, v=0, minVal=0, maxVal=100, increments=1, x=0, y=0, w=0, h=0, vertical=False, reversed_=False, color=(127,127,127), cursorColor=(255,255,255), activeCursorColor=(127,127,255), condition=lambda:True):
@@ -598,6 +944,8 @@ class inputSlider():
 			if self.action:
 				self.action()
 	def sync(self):
+		if not self.condition():
+			return
 		if self.reversed:
 			self.value = self.max-(self.class_.inputsValue[self.var]-self.min)
 		else:
@@ -621,6 +969,8 @@ class inputSlider():
 			x = (self.value/self.max)*self.w+self.x
 			pygame.draw.rect(self.screen, color, pygame.Rect(x-5, self.y-5, 10, self.h+10))
 	def update(self):
+		if not self.condition():
+			return
 		if self.active:
 			x, y = pygame.mouse.get_pos()
 			if self.vertical:
@@ -644,8 +994,9 @@ class inputSlider():
 			if self.action:
 				self.action()
 				
+			
 class inputButton():
-	def __init__(self, class_, action=None, x=0, y=0, w=0, h=0, color=(255,255,255), activeColor=(127,127,255), textColor=(0,0,0), icon=None, condition=lambda:True):
+	def __init__(self, class_, action=None, x=0, y=0, w=0, h=0, icon=None, activeIcon=None, condition=lambda:True):
 		self.class_ = class_
 		self.screen = class_.screen
 		self.action = action
@@ -653,24 +1004,27 @@ class inputButton():
 		self.y = y
 		self.w = w
 		self.h = h
-		self.color = color
-		self.activeColor = activeColor
 		self.icon = None
+		self.activeIcon = None
 		if icon:
 			self.icon = pygame.image.load(icon).convert_alpha()
 			self.icon = pygame.transform.smoothscale(self.icon,(self.w,self.h))
+		if activeIcon:
+			self.activeIcon = pygame.image.load(activeIcon).convert_alpha()
+			self.activeIcon = pygame.transform.smoothscale(self.activeIcon,(self.w,self.h))
 		self.active = False
 		self.condition = condition
 	def draw(self):
 		if not self.condition():
 			return
-		color = self.color
-		if self.active:
-			color = self.activeColor
-		pygame.draw.rect(self.screen, color, pygame.Rect(self.x, self.y, self.w, self.h))
 		if self.icon:
-			self.screen.blit(self.icon, (self.x, self.y))
+			if self.active and self.activeIcon:
+				self.screen.blit(self.activeIcon, (self.x, self.y))
+			else:
+				self.screen.blit(self.icon, (self.x, self.y))
 	def update(self):
+		if not self.condition():
+			return
 		return
 	def mouseInside(self, x, y):
 		if boxCollision(self.x, self.y, self.x+self.w, self.y+self.h, x, y):
@@ -692,7 +1046,81 @@ class inputButton():
 						for i in self.action:
 							i()
 	def sync(self):
+		if not self.condition():
+			return
 		return
+
+
+class inputTextButton():
+	def __init__(self, class_, action=None, x=0, y=0, w=0, h=0, text="", dynamic=False, font_="fonts/Inconsolata.otf", fontSize=16, color=(255,255,255), activeColor=(127,127,255), maxChar=None, condition=lambda:True):
+		self.class_ = class_
+		self.screen = class_.screen
+		self.action = action
+		self.x = x
+		self.y = y
+		self.w = w
+		self.h = h
+		self.text = ""
+		self.func = text
+		self.dynamic = dynamic
+		self.font = pygame.font.Font(font_,fontSize)
+		self.color = color
+		self.activeColor = activeColor
+		self.align = (0.5,0.5)
+		self.maxChar = maxChar
+		self.active = False
+		self.updateText = True
+		self.condition = condition
+	def draw(self):
+		if not self.condition():
+			return
+		color = self.color
+		if self.active:
+			color = self.activeColor
+		pygame.draw.rect(self.screen, color, pygame.Rect(self.x, self.y, self.w, self.h))
+		pygame.draw.rect(self.screen, (0,0,0), pygame.Rect(self.x+1, self.y+1, self.w-2, self.h-2))
+		if self.maxChar:
+			text = self.font.render(self.text[0:self.maxChar], 1, color)
+		else:
+			text = self.font.render(self.text, 1, color)
+		textSize = text.get_rect()
+		self.screen.blit(text, (self.x-(textSize.width*self.align[0])+self.w/2,self.y-(textSize.height*self.align[1])+self.h/2))
+	def update(self):
+		if not self.condition():
+			return
+		if self.updateText:
+			if self.dynamic:
+				self.sync()
+			else:
+				self.text = self.func
+	def mouseInside(self, x, y):
+		if boxCollision(self.x, self.y, self.x+self.w, self.y+self.h, x, y):
+			return True
+		return False
+	def mouseDown(self, x, y):
+		if not self.condition():
+			return
+		if self.mouseInside(x, y):
+			self.active = True
+	def mouseUp(self, x, y):
+		if self.active:
+			self.active = False
+			if self.mouseInside(x, y):
+				if self.action:
+					if isinstance(self.action, types.LambdaType):
+						self.action()
+					else:
+						for i in self.action:
+							i()
+	def sync(self):
+		if not self.condition():
+			return
+		if self.dynamic:
+			vals = enumerate(self.dynamic)
+			v = []
+			for i in vals:
+				v = v + [i[1]()]
+			self.text = str(self.func.format(*v))
 
 class inputGrid():
 	def __init__(self, class_, var, action=None, v=(0,0), x=0, y=0, w=0, h=0, color=(127,127,127), cursorColor=(255,255,255), activeCursorColor=(127,127,255), image=None, circle=False, condition=lambda:True):
@@ -721,6 +1149,8 @@ class inputGrid():
 			if self.action:
 				self.action()
 	def sync(self):
+		if not self.condition():
+			return
 		self.v = self.class_.inputsValue[self.var]
 		self.slideTo(self.v[0], self.v[1])
 	def draw(self):
@@ -729,13 +1159,16 @@ class inputGrid():
 		color = self.cursorColor
 		if self.active:
 			color = self.activeCursorColor
-		pygame.draw.rect(self.screen, self.color, pygame.Rect(self.x, self.y, self.w, self.h))
 		if self.image:
 			self.screen.blit(self.image, (self.x, self.y))
+		else:
+			pygame.draw.rect(self.screen, self.color, pygame.Rect(self.x, self.y, self.w, self.h))
 		#pygame.draw.rect(self.screen, color, pygame.Rect(self.x+self.v[0]-5, self.y+self.v[1]-5, 10,10))
 		pygame.draw.circle(self.screen, (0,0,0), (round(self.x+self.v[0]), round(self.y+self.v[1])), 7)
 		pygame.draw.circle(self.screen, color, (round(self.x+self.v[0]), round(self.y+self.v[1])), 6)
 	def update(self):
+		if not self.condition():
+			return
 		if self.active:
 			x, y = pygame.mouse.get_pos()
 			self.slideTo(x-self.x, y-self.y)
@@ -770,7 +1203,7 @@ class inputGrid():
 				self.action()
 			
 class inputLabel():
-	def __init__(self, class_, text="", dynamic=False, x=0, y=0, font_="fonts/Inconsolata.otf", fontSize=16, color=(255,255,255), activeColor=(127,127,255), align=(0,0), w=None, h=0, condition=lambda:True):
+	def __init__(self, class_, text="", dynamic=False, x=0, y=0, font_="fonts/Inconsolata.otf", fontSize=16, color=(255,255,255), activeColor=(127,127,255), align=(0,0), w=None, h=0, maxChar=None, condition=lambda:True):
 		self.class_ = class_
 		self.screen = class_.screen
 		self.text = ""
@@ -784,11 +1217,14 @@ class inputLabel():
 		self.align = align
 		self.width = w
 		self.height = self.font.get_linesize()+h
+		self.maxChar = maxChar
 		#print(self.height)
 		self.active = False
 		self.updateText = True
 		self.condition = condition
 	def update(self):
+		if not self.condition():
+			return
 		if self.updateText:
 			if self.dynamic:
 				self.sync()
@@ -805,7 +1241,10 @@ class inputLabel():
 		for line in lines:
 			totalHeight = totalHeight+self.height
 		for i, v in enumerate(self.wrapText(self.width)):
-			text = self.font.render(v, 1, self.color)
+			if self.maxChar:
+				text = self.font.render(v[0:self.maxChar], 1, color)
+			else:
+				text = self.font.render(v, 1, color)
 			textSize = text.get_rect()
 			self.screen.blit(text, (self.x-(textSize.width*self.align[0]),self.y-(totalHeight*self.align[1])+(i*self.height)))
 	def mouseDown(self, x, y):
@@ -813,6 +1252,8 @@ class inputLabel():
 	def mouseUp(self, x, y):
 		return
 	def sync(self):
+		if not self.condition():
+			return
 		if self.dynamic:
 			vals = enumerate(self.dynamic)
 			v = []
@@ -835,8 +1276,12 @@ class inputLabel():
 					else:
 						if wrapOnSpace:
 							spaceSep = re.search("(.*) (.*?)$", textLine)
-							wrapedText = wrapedText + [spaceSep.group(1)]
-							textLine = spaceSep.group(2) + v
+							if spaceSep:
+								wrapedText = wrapedText + [spaceSep.group(1)]
+								textLine = spaceSep.group(2) + v
+							else:
+								wrapedText = wrapedText + [textLine]
+								textLine = v
 						else:
 							wrapedText = wrapedText + [textLine]
 							textLine = v
