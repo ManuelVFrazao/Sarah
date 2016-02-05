@@ -14,6 +14,7 @@ import pygame
 
 import sarahAI
 import sarahMQTT
+import sarahMysql
 
 class SARaH:
 	def __init__(self):
@@ -39,6 +40,8 @@ class SARaH:
 		
 		self.AI.mqtt = sarahAI.aiMqtt(self.MQTT.client, "sarah/house")
 		
+		self.MySQL = sarahMysql.SarahMySQL(self)
+		
 		self.passCode = {
 			"code":"",
 			"unlockCode":"1234",
@@ -47,14 +50,14 @@ class SARaH:
 		}
 		
 		self.rooms = [
-			{"name":"Kitchen","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Oven","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Coffee machine","on":True,"consumption":0},{"name":"Toaster","on":True,"consumption":0}]},
-			{"name":"Living room","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Wall","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0},{"name":"Sound system","on":True,"consumption":0}]},
-			{"name":"Bathroom","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Chandelier","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Hair dryer","on":True,"consumption":0}]},
-			{"name":"Dining room","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Chandelier","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
-			{"name":"Master bedroom","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Right night lamp","lightR":127,"lightG":127,"lightB":127},{"name":"Left night lamp","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
-			{"name":"Kid bedroom","lights":[],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
-			{"name":"Guest bedroom","lights":[],"temperature":20.0,"currentTemperature":19.5,"outlets":[]},
-			{"name":"Garage","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Lamp","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Central Vacuum","on":True,"consumption":0},{"name":"Water heater","on":True,"consumption":0}]},
+			#{"name":"Kitchen","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Oven","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Coffee machine","on":True,"consumption":0},{"name":"Toaster","on":True,"consumption":0}]},
+			#{"name":"Living room","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Wall","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0},{"name":"Sound system","on":True,"consumption":0}]},
+			#{"name":"Bathroom","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Chandelier","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Hair dryer","on":True,"consumption":0}]},
+			#{"name":"Dining room","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Chandelier","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			#{"name":"Master bedroom","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Right night lamp","lightR":127,"lightG":127,"lightB":127},{"name":"Left night lamp","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			#{"name":"Kid bedroom","lights":[],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"TV","on":True,"consumption":0}]},
+			#{"name":"Guest bedroom","lights":[],"temperature":20.0,"currentTemperature":19.5,"outlets":[]},
+			#{"name":"Garage","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Lamp","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Central Vacuum","on":True,"consumption":0},{"name":"Water heater","on":True,"consumption":0}]},
 		]
 		
 		self.currentRoom = 0
@@ -114,6 +117,25 @@ class SARaH:
 			"shuffle":False,
 			"loop":False,
 		}
+		self.mediaDevices = [
+			{
+				"name":"Livingroom TV",
+				"setTo":"Kodi",
+			},
+			{
+				"name":"Bedroom TV",
+				"setTo":"Cable",
+			},
+			{
+				"name":"Kitchen TV",
+				"setTo":"Cable",
+			},
+			{
+				"name":"Kid's TV",
+				"setTo":"Kodi",
+			},
+		]
+		self.currentMediaDevice = 0
 		
 		self.CurrentPage = "home"
 		self.pages = {
@@ -169,7 +191,7 @@ class SARaH:
 				"inputs":[
 					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, [lambda:self.changePage("lights"),lambda:self.scrollButtons(0, 1, absolute=True)], 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
-					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
+					inputButton(self, [lambda:self.changePage("temperature"),lambda:self.scrollButtons(0, 1, absolute=True)], 204,10, 48,48, icon="images/Icons/thermometer53.png"),
 					inputButton(self, [lambda:self.changePage("outlets"),lambda:self.scrollButtons(0, 1, absolute=True)], 262,10, 48,48, icon="images/Icons/electrical28.png"),
 				
 					inputSlider(self, "lightSlider", lambda:self.commitValues(), 100, 0, 100, 1, 222,80, 20,100, vertical=True, reversed_=True, condition=lambda:len(self.rooms[self.currentRoom]["lights"])>0),
@@ -197,15 +219,15 @@ class SARaH:
 				"inputs":[
 					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, [lambda:self.changePage("lights"),lambda:self.scrollButtons(0, 1, absolute=True)], 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
-					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
+					inputButton(self, [lambda:self.changePage("temperature"),lambda:self.scrollButtons(0, 1, absolute=True)], 204,10, 48,48, icon="images/Icons/thermometer53.png"),
 					inputButton(self, [lambda:self.changePage("outlets"),lambda:self.scrollButtons(0, 1, absolute=True)], 262,10, 48,48, icon="images/Icons/electrical28.png"),
 				
-					inputSlider(self, "temperatureSlider", lambda:self.commitValues(), 20, 17, 23, 0.5, 222,80, 20,100, vertical=True, reversed_=True),
+					inputSlider(self, "temperatureSlider", lambda:self.commitValues(), 20, 17, 23, 0.5, 222,80, 20,100, vertical=True, reversed_=True, condition=lambda:"temperature" in self.rooms[self.currentRoom]),
 					
-					inputLabel(self, "Current: {0}\nSet: {1}", [lambda:float(self.rooms[self.currentRoom]["currentTemperature"]),lambda:float(self.inputsValue["temperatureSlider"])], 202, 80, fontSize=28, align=(1,0)),
+					inputLabel(self, "Current: {0}\nSet: {1}", [lambda:float(self.rooms[self.currentRoom]["currentTemperature"]),lambda:float(self.inputsValue["temperatureSlider"])], 202, 80, fontSize=28, align=(1,0), condition=lambda:"temperature" in self.rooms[self.currentRoom]),
 					
-					inputButton(self, lambda:self.inputs[4].slide(-0.5,True,True), 252,80, 48,48, icon="images/Icons/up154.png"),
-					inputButton(self, lambda:self.inputs[4].slide(0.5,True,True), 252,132, 48,48, icon="images/Icons/down102.png"),
+					inputButton(self, lambda:self.inputs[4].slide(-0.5,True,True), 252,80, 48,48, icon="images/Icons/up154.png", condition=lambda:"temperature" in self.rooms[self.currentRoom]),
+					inputButton(self, lambda:self.inputs[4].slide(0.5,True,True), 252,132, 48,48, icon="images/Icons/down102.png", condition=lambda:"temperature" in self.rooms[self.currentRoom]),
 					
 				]
 			},
@@ -215,10 +237,10 @@ class SARaH:
 				"inputs":[
 					inputButton(self, [lambda:self.scrollButtons(0, 6, absolute=True), lambda:self.changePage("rooms")], 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, [lambda:self.scrollButtons(0, 1, absolute=True), lambda:self.changePage("lights")], 146,10, 48,48, icon="images/Icons/lightbulb52.png"),
-					inputButton(self, lambda:self.changePage("temperature"), 204,10, 48,48, icon="images/Icons/thermometer53.png"),
+					inputButton(self, [lambda:self.changePage("temperature"),lambda:self.scrollButtons(0, 1, absolute=True)], 204,10, 48,48, icon="images/Icons/thermometer53.png"),
 					inputButton(self, [lambda:self.scrollButtons(0, 1, absolute=True), lambda:self.changePage("outlets")], 262,10, 48,48, icon="images/Icons/electrical28.png"),
 				
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom, self.buttonScroll, commit=True), 20,80, 48,48, icon="images/Icons/electrical28.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
+					inputButton(self, lambda:self.toggleOutlet(self.currentRoom, self.buttonScroll, commit=True), 20,80, 48,48, icon="images/Icons/flash24.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					inputButton(self, lambda:self.scrollButtons(-1, 1, self.rooms[self.currentRoom]["outlets"]), 20,172, 48,48, icon="images/Icons/left204.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					inputButton(self, lambda:self.scrollButtons(1, 1, self.rooms[self.currentRoom]["outlets"]), 252,172, 48,48, icon="images/Icons/right204.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					
@@ -246,8 +268,12 @@ class SARaH:
 				"inputs":[
 					inputButton(self, [lambda:self.scrollButtons(0, absolute=True), lambda:self.changePage("house")], 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.changePage("music"), 146,10, 48,48, icon="images/Icons/musical115.png"),
-					inputButton(self, lambda:self.scrollButtons(-6), 204,10, 48,48, icon="images/Icons/left204.png"),
-					inputButton(self, lambda:self.scrollButtons(6), 262,10, 48,48, icon="images/Icons/right204.png"),
+					inputButton(self, lambda:self.scrollButtons(-6, 3, self.mediaDevices), 204,10, 48,48, icon="images/Icons/left204.png"),
+					inputButton(self, lambda:self.scrollButtons(6, 3, self.mediaDevices), 262,10, 48,48, icon="images/Icons/right204.png"),
+					
+					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll)], 20,80, 280,40, "{0} ({1})", [lambda:self.mediaDevices[self.buttonScroll]["name"], lambda:self.mediaDevices[self.buttonScroll]["setTo"]], condition=lambda:self.buttonScroll < len(self.mediaDevices)),
+					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+1)], 20,130, 280,40, "{0} ({1})", [lambda:self.mediaDevices[self.buttonScroll+1]["name"], lambda:self.mediaDevices[self.buttonScroll+1]["setTo"]], condition=lambda:self.buttonScroll+1 < len(self.mediaDevices)),
+					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+2)], 20,130, 280,40, "{0} ({1})", [lambda:self.mediaDevices[self.buttonScroll+2]["name"], lambda:self.mediaDevices[self.buttonScroll+2]["setTo"]], condition=lambda:self.buttonScroll+2 < len(self.mediaDevices)),
 				]
 			},
 			"music":{
@@ -282,7 +308,7 @@ class SARaH:
 				"name":"Remote",
 				"background":pygame.image.load("images/Backgrounds/1x0.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.changePage("multimedia"), 10,10, 48,48, icon="images/Icons/house139.png"),
 				]
 			},
 			"keypad":{
@@ -339,6 +365,7 @@ class SARaH:
 				]
 			},
 		}
+		self.MySQL.load()
 		self.changePage("home")
 	
 	def changePage(self, page, room=None, syncAllInputs=True):
@@ -486,26 +513,31 @@ class SARaH:
 			
 	def commitValues(self):
 		room = self.rooms[self.currentRoom]
-		room["temperature"] = self.inputsValue["temperatureSlider"]
+		if "temperature" in room:
+			room["temperature"] = self.inputsValue["temperatureSlider"]
 		colorWheel = self.inputsValue["RGBWheel"]
 		
 		roomColor = getRGBFromColorWheel(colorWheel[2],colorWheel[3],self.inputsValue["lightSlider"])
 		#print(roomColor)
-		room["lights"][self.buttonScroll]["lightR"] = roomColor[0]
-		room["lights"][self.buttonScroll]["lightG"] = roomColor[1]
-		room["lights"][self.buttonScroll]["lightB"] = roomColor[2]
+		if len(room["lights"]) > self.buttonScroll:
+			room["lights"][self.buttonScroll]["lightR"] = roomColor[0]
+			room["lights"][self.buttonScroll]["lightG"] = roomColor[1]
+			room["lights"][self.buttonScroll]["lightB"] = roomColor[2]
 		print(roomColor, colorWheel)
 		
-		mqttMsg = "{0},temperature,{1};{0},lightR,{2},{5};{0},{0},lightG,{3},{5};{0},lightB,{4},{5}".format(
-			self.currentRoom, str(room["temperature"]), str(room["lights"][self.buttonScroll]["lightR"]), str(room["lights"][self.buttonScroll]["lightG"]), str(room["lights"][self.buttonScroll]["lightB"]), str(self.buttonScroll))
+		if "temperature" in room:
+			self.MQTTSend("sarah/house", "{0},temperature,{1}".format(
+			self.currentRoom, str(room["temperature"])))
+		if  len(room["lights"]) > self.buttonScroll:
+			self.MQTTSend("sarah/house", "{0},lightR,{1},{4};{0},{0},lightG,{2},{4};{0},lightB,{3},{4}".format(
+			self.currentRoom, str(room["lights"][self.buttonScroll]["lightR"]), str(room["lights"][self.buttonScroll]["lightG"]), str(room["lights"][self.buttonScroll]["lightB"]), str(self.buttonScroll)))
 		
-		print(mqttMsg)
-		self.MQTTSend("sarah/house", mqttMsg)
 		self.MQTTSend("sarah/house", "-1,musicVolume,{0}".format(str(self.inputsValue["musicVolumeSlider"])))
 		
 	def sync(self, syncAllInputs=True, resetScroll=True):
 		room = self.rooms[self.currentRoom]
-		self.inputsValue["temperatureSlider"] = room["temperature"]
+		if "temperature" in room:
+			self.inputsValue["temperatureSlider"] = room["temperature"]
 		colorWheel = self.inputsValue["RGBWheel"]
 		if resetScroll:
 			self.buttonScroll = 0
@@ -590,7 +622,7 @@ class SARaH:
 			else:
 				if command[1] == "musicVolume":
 					self.inputsValue["musicVolumeSlider"] = int(command[2])
-					self.sync(syncAllInputs=True)
+					#self.sync(syncAllInputs=True,resetScroll=False)
 				if command[1] == "musicStatus":
 					if int(command[2]) == 0:
 						self.music["status"] = "Stopped"
@@ -601,32 +633,32 @@ class SARaH:
 					elif int(command[2]) == 2:
 						self.music["status"] = "Paused"
 						self.music["playing"] = False
-					self.sync(syncAllInputs=True)
+					#self.sync(syncAllInputs=True,resetScroll=False)
 				if command[1] == "musicLoop":
 					self.music["loop"] = int(command[2]) == 1
-					self.sync(syncAllInputs=True)
+					#self.sync(syncAllInputs=True)
 				if command[1] == "musicShuffle":
 					self.music["shuffle"] = int(command[2]) == 1
-					self.sync(syncAllInputs=True)
+					#self.sync(syncAllInputs=True,resetScroll=False)
 				if command[1] == "musicTitle":
 					t = str(command[2])
 					for i in range(3, len(command)):
 						t = t+","+str(command[i])
 					self.music["title"] = str(t)
-					self.sync(syncAllInputs=True)
+					#self.sync(syncAllInputs=True,resetScroll=False)
 				if command[1] == "musicArtist":
 					t = str(command[2])
 					for i in range(3, len(command)):
 						t = t+","+str(command[i])
 					self.music["title"] = str(t)
-					self.sync(syncAllInputs=True)
+					#self.sync(syncAllInputs=True,resetScroll=False)
 				if command[1] == "musicAlbum":
 					t = str(command[2])
 					for i in range(3, len(command)):
 						t = t+","+str(command[i])
 					self.music["title"] = str(t)
-					self.sync(syncAllInputs=True)
-		self.sync(syncAllInputs=True)
+					#self.sync(syncAllInputs=True,resetScroll=False)
+		self.sync(syncAllInputs=True,resetScroll=False)
 		
 	def MQTTSend(self, topic, msg):
 		self.MQTT.client.publish(topic, msg)
@@ -679,6 +711,11 @@ class SARaH:
 		
 	def editCustomActions(self, num):
 		return
+		
+	def mediaDevice(self, device):
+		self.changePage("mediaRemote")
+		self.scrollButtons(0, 1, absolute=True)
+		self.currentMediaDevice = device
 	
 class inputSlider():
 	def __init__(self, class_, var, action=None, v=0, minVal=0, maxVal=100, increments=1, x=0, y=0, w=0, h=0, vertical=False, reversed_=False, color=(127,127,127), cursorColor=(255,255,255), activeCursorColor=(127,127,255), condition=lambda:True):
