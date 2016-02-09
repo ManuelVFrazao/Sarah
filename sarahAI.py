@@ -10,7 +10,7 @@ import wolframalpha
 import speech_recognition as sr
 
 class SarahAI():
-	def __init__(self, witaiKey="JNYZAMPZ7IFASATUY5PQSGDNGKV7HL5E", wolframalphaKey="TKRT9H-AV9W8WRR8V"):
+	def __init__(self, class_, witaiKey="JNYZAMPZ7IFASATUY5PQSGDNGKV7HL5E", wolframalphaKey="TKRT9H-AV9W8WRR8V"):
 		self.WolframClient = wolframalpha.Client(wolframalphaKey)
 		self.recog = sr.Recognizer()
 		self.mic = sr.Microphone()
@@ -28,10 +28,7 @@ class SarahAI():
 		
 		self.mqtt = None
 		
-		self.rooms = [
-			"Kitchen",
-			"Living Room",
-		]
+		self.class_ = class_
 		
 		self.catchPhrases = {
 			"hello":[
@@ -52,17 +49,69 @@ class SarahAI():
 				"Right away",
 				"Will do",
 				"I'll open the light",
+				"I'll open the {1} light",
+				"I'll open the {1} light in the {0}",
 				"I'll turn on the light",
+				"I'll turn on the {1} light",
+				"I'll turn on the {1} light in the {0}",
 				"Let there be light",
 				"And then, there was light",
+			],
+			"turnOnLights":[
+				"Alright",
+				"Very well",
+				"Right away",
+				"Will do",
+				"I'll open the lights",
+				"I'll open the lights in the {0}",
+				"I'll turn on the lights",
+				"I'll turn on the lights in the {0}",
+				"Let there be light",
+				"And then, there was light",
+			],
+			"setLight":[
+				"Alright",
+				"Very well",
+				"Right away",
+				"Will do",
+				"I'll open the light at {2} percent",
+				"I'll open the {1} light at {2} percent",
+				"I'll open the {1} light in the {0} at {2} percent",
+				"I'll turn on the light at {2} percent",
+				"I'll turn on the {1} light at {2} percent",
+				"I'll turn on the {1} light in the {0} at {2} percent",
+			],
+			"setLights":[
+				"Alright",
+				"Very well",
+				"Right away",
+				"Will do",
+				"I'll open the lights at {1} percent",
+				"I'll open the lights in the {0} at {1} percent",
+				"I'll turn on the lights at {1} percent",
+				"I'll turn on the lights in the {0} at {1} percent",
 			],
 			"turnOffLight":[
 				"Alright",
 				"Very well",
 				"Right away",
 				"Will do",
+				"I'll close the {1} light",
+				"I'll close the {1} light in the {0}",
 				"I'll close the light",
 				"I'll turn off the light",
+				"I'll turn off the {1} light",
+				"I'll turn off the {1} light in the {0}",
+			],
+			"turnOffLights":[
+				"Alright",
+				"Very well",
+				"Right away",
+				"Will do",
+				"I'll close the lights",
+				"I'll close the lights in the {0}",
+				"I'll turn off the lights",
+				"I'll turn off the lights in the {0}",
 			],
 			"setTemperature":[
 				"Alright",
@@ -70,6 +119,7 @@ class SarahAI():
 				"Right away",
 				"Will do",
 				"I'll set the temperature",
+				"I'll set the temperature in the {0}",
 			],
 			"openDoor":[
 				"Alright",
@@ -77,6 +127,19 @@ class SarahAI():
 				"Right away",
 				"Will do",
 				"I'll open the door",
+			],
+			
+			
+			"noTemperatureInRoom":[
+				"I'm sorry, there is no heater in that room",
+				"I'm sorry, there is no heater in the {0}",
+			],
+			"noLightInRoom":[
+				"I'm sorry, there is no lights in that room",
+			],
+			"wrongLightInRoom":[
+				"I'm sorry, there is no lights named {1} in that room",
+				"I'm sorry, there is no lights named {1} in the {0}",
 			],
 			
 			
@@ -213,7 +276,7 @@ class SarahAI():
 					if "math_expression" in entities:
 						self.ask(entities["math_expression"][0]["value"])
 				elif intent == "getWeather":
-					location = "Montreal"
+					location = "current location"
 					timeAndDate = {"date":"today","time":"now"}
 					timeAndDate2 = None
 					
@@ -244,40 +307,76 @@ class SarahAI():
 				elif intent == "setTemperature":
 					if "room" in entities and "temperature" in entities:
 						#print("setTemperature", entities["room"][0]["value"], entities["temperature"][0]["value"])
-						numRoom = self.getRoom(entities["room"][0]["value"])
-						self.sendMqtt("{0},temperature,{1}".format(numRoom, entities["temperature"][0]["value"]))
-						if float(entities["temperature"][0]["value"]) >= 21:
-							print("Hot")
-							self.say(self.pickCatchPhrase("setTemperature"))
-						elif float(entities["temperature"][0]["value"]) <= 19:
-							print("cold")
-							self.say(self.pickCatchPhrase("setTemperature"))
-						else:
-							print("normal")
-							self.say(self.pickCatchPhrase("setTemperature"))
+						room = self.getRoom(entities["room"][0]["value"])
+						print(room)
+						if room:
+							if "heaterSerialNum" in room:
+								self.sendMqtt("temperature,{0},{1}".format(room["heaterSerialNum"],entities["temperature"][0]["value"]))
+								self.say(self.pickCatchPhrase("setTemperature").format(entities["room"][0]["value"]))
+							else:
+								self.say(self.pickCatchPhrase("noTemperatureInRoom").format(entities["room"][0]["value"]))
 				elif intent == "setLight":
 					if "room" in entities:
 						#print("setLight", entities["room"][0]["value"], entities["on_off"][0]["value"])
-						numRoom = self.getRoom(entities["room"][0]["value"])
-						if "number" in entities:
-							print(int(entities["number"][0]["value"])/100*255)
-							self.sendMqtt("{0},lightR,{1};{0},lightG,{1};{0},lightB,{1}".format(numRoom, int(entities["number"][0]["value"])/100*255))
-							self.say(self.pickCatchPhrase("turnOnLight"))
-						elif "on_off" in entities:
-							if entities["on_off"][0]["value"] == "on":
-								self.sendMqtt("{0},lightR,255;{0},lightG,255;{0},lightB,255".format(numRoom))
-								self.say(self.pickCatchPhrase("turnOnLight"))
+						if "lightName" in entities:
+							light = self.getLight(entities["room"][0]["value"], entities["lightName"][0]["value"])
+							if light:
+								if "number" in entities:
+									print(int(entities["number"][0]["value"])/100*255)
+									
+									self.sendMqtt("light,{0},{1},{1},{1}".format(light["serialNum"], int(entities["number"][0]["value"])/100*255))
+									self.say(self.pickCatchPhrase("setLight").format(entities["room"][0]["value"], entities["lightName"][0]["value"], entities["number"][0]["value"]))
+								elif "on_off" in entities:
+									if entities["on_off"][0]["value"] == "on":
+										self.sendMqtt("light,{0},255,255,255".format(light["serialNum"]))
+										self.say(self.pickCatchPhrase("turnOnLight").format(entities["room"][0]["value"], entities["lightName"][0]["value"]))
+									else:
+										self.sendMqtt("light,{0},0,0,0".format(light["serialNum"]))
+										self.say(self.pickCatchPhrase("turnOffLight").format(entities["room"][0]["value"], entities["lightName"][0]["value"]))
 							else:
-								self.sendMqtt("{0},lightR,0;{0},lightG,0;{0},lightB,0".format(numRoom))
-								self.say(self.pickCatchPhrase("turnOffLight"))
+								self.say(self.pickCatchPhrase("wrongLightInRoom").format(entities["room"][0]["value"], entities["lightName"][0]["value"]))
+						else:
+							room = self.getRoom(entities["room"][0]["value"])
+							if room:
+								for light in room["lights"]:
+									if "number" in entities:
+										print(int(entities["number"][0]["value"])/100*255)
+										
+										self.sendMqtt("light,{0},{1},{1},{1}".format(light["serialNum"], int(entities["number"][0]["value"])/100*255))
+										
+									elif "on_off" in entities:
+										if entities["on_off"][0]["value"] == "on":
+											self.sendMqtt("light,{0},255,255,255".format(light["serialNum"]))
+										else:
+											self.sendMqtt("light,{0},0,0,0".format(light["serialNum"]))
+								if "number" in entities:
+									self.say(self.pickCatchPhrase("setLights").format(entities["room"][0]["value"], entities["number"][0]["value"]))
+								elif "on_off" in entities:
+									if entities["on_off"][0]["value"] == "on":
+										self.say(self.pickCatchPhrase("turnOnLights").format(entities["room"][0]["value"]))
+									else:
+										self.say(self.pickCatchPhrase("turnOffLights").format(entities["room"][0]["value"]))
+							else:
+								self.say(self.pickCatchPhrase("noLightInRoom").format(entities["room"][0]["value"]))
 				elif intent == "openDoor":
-					self.sendMqtt("-1,openDoor,1")
+					self.sendMqtt("openDoor,1")
 					self.say(self.pickCatchPhrase("openDoor"))
 			else:
 				if intent == "StartListening":
 					self.isTriggered = True
 					self.say("Yes?")
 
+	def getRoom(self, roomName):
+		for room in self.class_.rooms:
+			if room["name"].lower() == roomName.lower():
+				return room
+	def getLight(self, roomName, lightName):
+		room = self.getRoom(roomName)
+		if room:
+			for light in room["lights"]:
+				if light["name"].lower() == lightName.lower():
+					return light
+		
 	def say(self, sentence, voice="mb-us1", speed=130, pitch=60): #voice="en-us+f4", speed=145
 		#self.stopTalking()
 		self.talkProcess = subprocess.Popen(["espeak", "-m", '"'+str(self.formatResponse(sentence))+'"', "-pho", "-v", str(voice), "-s", str(speed), "-p", str(pitch)])
@@ -313,16 +412,6 @@ class SarahAI():
 		print(self.mqtt, command)
 		if self.mqtt:
 			self.mqtt.send(command)
-			
-	def getRoom(self, roomName):
-		roomNum = -1
-		
-		for i, v in enumerate(self.rooms):
-			if v.lower() == roomName.lower():
-				roomNum = i
-				break
-		
-		return roomNum
 			
 class aiThread(threading.Thread):
 	def __init__(self, ai):

@@ -30,7 +30,7 @@ class SARaH:
 		self.clock = pygame.time.Clock()
 		self.autoCommit = False
 		
-		self.AI = sarahAI.SarahAI()
+		self.AI = sarahAI.SarahAI(self)
 		self.AIThread = sarahAI.aiThread(self.AI)
 		self.AIThread.daemon = True
 		self.AIThread.start()
@@ -224,7 +224,7 @@ class SARaH:
 				
 					inputSlider(self, "temperatureSlider", lambda:self.commitValues(), 20, 17, 23, 0.5, 222,80, 20,100, vertical=True, reversed_=True, condition=lambda:"temperature" in self.rooms[self.currentRoom]),
 					
-					inputLabel(self, "Current: {0}\nSet: {1}", [lambda:float(self.rooms[self.currentRoom]["currentTemperature"]),lambda:float(self.inputsValue["temperatureSlider"])], 202, 80, fontSize=28, align=(1,0), condition=lambda:"temperature" in self.rooms[self.currentRoom]),
+					inputLabel(self, "Humidity: {0}%\nCurrent: {1}°\nSet: {2}°", [lambda:float(self.rooms[self.currentRoom]["currentHumidity"]),lambda:float(self.rooms[self.currentRoom]["currentTemperature"]),lambda:float(self.inputsValue["temperatureSlider"])], 202, 80, fontSize=22, align=(1,0), condition=lambda:"temperature" in self.rooms[self.currentRoom]),
 					
 					inputButton(self, lambda:self.inputs[4].slide(-0.5,True,True), 252,80, 48,48, icon="images/Icons/up154.png", condition=lambda:"temperature" in self.rooms[self.currentRoom]),
 					inputButton(self, lambda:self.inputs[4].slide(0.5,True,True), 252,132, 48,48, icon="images/Icons/down102.png", condition=lambda:"temperature" in self.rooms[self.currentRoom]),
@@ -240,7 +240,7 @@ class SARaH:
 					inputButton(self, [lambda:self.changePage("temperature"),lambda:self.scrollButtons(0, 1, absolute=True)], 204,10, 48,48, icon="images/Icons/thermometer53.png"),
 					inputButton(self, [lambda:self.scrollButtons(0, 1, absolute=True), lambda:self.changePage("outlets")], 262,10, 48,48, icon="images/Icons/electrical28.png"),
 				
-					inputButton(self, lambda:self.toggleOutlet(self.currentRoom, self.buttonScroll, commit=True), 20,80, 48,48, icon="images/Icons/flash24.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
+					inputButton(self, lambda:self.MQTTSend("sarah/house", "toggleOutlet,{0}".format(self.rooms[self.currentRoom]["outlets"][self.buttonScroll]["serialNum"])), 20,80, 48,48, icon="images/Icons/flash24.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					inputButton(self, lambda:self.scrollButtons(-1, 1, self.rooms[self.currentRoom]["outlets"]), 20,172, 48,48, icon="images/Icons/left204.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					inputButton(self, lambda:self.scrollButtons(1, 1, self.rooms[self.currentRoom]["outlets"]), 252,172, 48,48, icon="images/Icons/right204.png", condition=lambda:len(self.rooms[self.currentRoom]["outlets"])>0),
 					
@@ -526,11 +526,14 @@ class SARaH:
 		print(roomColor, colorWheel)
 		
 		if "temperature" in room:
-			self.MQTTSend("sarah/house", "{0},temperature,{1}".format(
-			self.currentRoom, str(room["temperature"])))
+			self.MQTTSend("sarah/house", "temperature,{0},{1}".format(
+				str(room["heaterSerialNum"]), str(room["temperature"])))
 		if  len(room["lights"]) > self.buttonScroll:
-			self.MQTTSend("sarah/house", "{0},lightR,{1},{4};{0},{0},lightG,{2},{4};{0},lightB,{3},{4}".format(
-			self.currentRoom, str(room["lights"][self.buttonScroll]["lightR"]), str(room["lights"][self.buttonScroll]["lightG"]), str(room["lights"][self.buttonScroll]["lightB"]), str(self.buttonScroll)))
+			self.MQTTSend("sarah/house", "light,{0},{1},{2},{3}".format(
+				str(room["lights"][self.buttonScroll]["serialNum"]),
+				str(room["lights"][self.buttonScroll]["lightR"]),
+				str(room["lights"][self.buttonScroll]["lightG"]),
+				str(room["lights"][self.buttonScroll]["lightB"])))
 		
 		self.MQTTSend("sarah/house", "-1,musicVolume,{0}".format(str(self.inputsValue["musicVolumeSlider"])))
 		
@@ -589,90 +592,154 @@ class SARaH:
 			
 	def MQTTReceive(self, client, userdata, msg):
 		print(msg.topic+" "+str(msg.payload))
-		for i in msg.payload.decode("utf-8").split(";"):
-			print(i)
-			command = i.split(",")
-			if int(command[0]) >= 0:
-				if command[1] == "temperature":
-					self.rooms[int(command[0])]["temperature"] = min(max(float(command[2]), 17), 23)
-				if command[1] == "lightR":
-					if len(command) > 3:
-						self.rooms[int(command[0])]["lights"][int(command[3])]["lightR"] = min(max(float(command[2]), 0), 255)
-					else:
-						for i in range(0, len(self.rooms[int(command[0])]["lights"])):
-							self.rooms[int(command[0])]["lights"][i]["lightR"] = min(max(float(command[2]), 0), 255)
-				if command[1] == "lightG":
-					if len(command) > 3:
-						self.rooms[int(command[0])]["lights"][int(command[3])]["lightG"] = min(max(float(command[2]), 0), 255)
-					else:
-						for i in range(0, len(self.rooms[int(command[0])]["lights"])):
-							self.rooms[int(command[0])]["lights"][i]["lightG"] = min(max(float(command[2]), 0), 255)
-				if command[1] == "lightB":
-					if len(command) > 3:
-						self.rooms[int(command[0])]["lights"][int(command[3])]["lightB"] = min(max(float(command[2]), 0), 255)
-					else:
-						for i in range(0, len(self.rooms[int(command[0])]["lights"])):
-							self.rooms[int(command[0])]["lights"][i]["lightB"] = min(max(float(command[2]), 0), 255)
-				if command[1] == "outletOn":
-					self.turnOutletOn(int(command[0]), int(command[2]), commit=False)
-				if command[1] == "outletOff":
-					self.turnOutletOff(int(command[0]), int(command[2]), commit=False)
-				if command[1] == "outletConsumption":
-					self.setOutletConsumption(int(command[0]), int(command[2]), float(command[3]))
-			else:
-				if command[1] == "musicVolume":
-					self.inputsValue["musicVolumeSlider"] = int(command[2])
-					#self.sync(syncAllInputs=True,resetScroll=False)
-				if command[1] == "musicStatus":
-					if int(command[2]) == 0:
-						self.music["status"] = "Stopped"
-						self.music["playing"] = False
-					elif int(command[2]) == 1:
-						self.music["status"] = "Playing"
-						self.music["playing"] = True
-					elif int(command[2]) == 2:
-						self.music["status"] = "Paused"
-						self.music["playing"] = False
-					#self.sync(syncAllInputs=True,resetScroll=False)
-				if command[1] == "musicLoop":
-					self.music["loop"] = int(command[2]) == 1
-					#self.sync(syncAllInputs=True)
-				if command[1] == "musicShuffle":
-					self.music["shuffle"] = int(command[2]) == 1
-					#self.sync(syncAllInputs=True,resetScroll=False)
-				if command[1] == "musicTitle":
-					t = str(command[2])
-					for i in range(3, len(command)):
-						t = t+","+str(command[i])
-					self.music["title"] = str(t)
-					#self.sync(syncAllInputs=True,resetScroll=False)
-				if command[1] == "musicArtist":
-					t = str(command[2])
-					for i in range(3, len(command)):
-						t = t+","+str(command[i])
-					self.music["title"] = str(t)
-					#self.sync(syncAllInputs=True,resetScroll=False)
-				if command[1] == "musicAlbum":
-					t = str(command[2])
-					for i in range(3, len(command)):
-						t = t+","+str(command[i])
-					self.music["title"] = str(t)
-					#self.sync(syncAllInputs=True,resetScroll=False)
+		#for i in msg.payload.decode("utf-8").split(";"):
+			#print(i)
+			#command = i.split(",")
+			#if int(command[0]) >= 0:
+				#if command[1] == "temperature":
+					#self.rooms[int(command[0])]["temperature"] = min(max(float(command[2]), 17), 23)
+				#if command[1] == "lightR":
+					#if len(command) > 3:
+						#self.rooms[int(command[0])]["lights"][int(command[3])]["lightR"] = min(max(float(command[2]), 0), 255)
+					#else:
+						#for i in range(0, len(self.rooms[int(command[0])]["lights"])):
+							#self.rooms[int(command[0])]["lights"][i]["lightR"] = min(max(float(command[2]), 0), 255)
+				#if command[1] == "lightG":
+					#if len(command) > 3:
+						#self.rooms[int(command[0])]["lights"][int(command[3])]["lightG"] = min(max(float(command[2]), 0), 255)
+					#else:
+						#for i in range(0, len(self.rooms[int(command[0])]["lights"])):
+							#self.rooms[int(command[0])]["lights"][i]["lightG"] = min(max(float(command[2]), 0), 255)
+				#if command[1] == "lightB":
+					#if len(command) > 3:
+						#self.rooms[int(command[0])]["lights"][int(command[3])]["lightB"] = min(max(float(command[2]), 0), 255)
+					#else:
+						#for i in range(0, len(self.rooms[int(command[0])]["lights"])):
+							#self.rooms[int(command[0])]["lights"][i]["lightB"] = min(max(float(command[2]), 0), 255)
+				#if command[1] == "outletOn":
+					#self.turnOutletOn(int(command[0]), int(command[2]), commit=False)
+				#if command[1] == "outletOff":
+					#self.turnOutletOff(int(command[0]), int(command[2]), commit=False)
+				#if command[1] == "outletConsumption":
+					#self.setOutletConsumption(int(command[0]), int(command[2]), float(command[3]))
+			#else:
+				#if command[1] == "musicVolume":
+					#self.inputsValue["musicVolumeSlider"] = int(command[2])
+					##self.sync(syncAllInputs=True,resetScroll=False)
+				#if command[1] == "musicStatus":
+					#if int(command[2]) == 0:
+						#self.music["status"] = "Stopped"
+						#self.music["playing"] = False
+					#elif int(command[2]) == 1:
+						#self.music["status"] = "Playing"
+						#self.music["playing"] = True
+					#elif int(command[2]) == 2:
+						#self.music["status"] = "Paused"
+						#self.music["playing"] = False
+					##self.sync(syncAllInputs=True,resetScroll=False)
+				#if command[1] == "musicLoop":
+					#self.music["loop"] = int(command[2]) == 1
+					##self.sync(syncAllInputs=True)
+				#if command[1] == "musicShuffle":
+					#self.music["shuffle"] = int(command[2]) == 1
+					##self.sync(syncAllInputs=True,resetScroll=False)
+				#if command[1] == "musicTitle":
+					#t = str(command[2])
+					#for i in range(3, len(command)):
+						#t = t+","+str(command[i])
+					#self.music["title"] = str(t)
+					##self.sync(syncAllInputs=True,resetScroll=False)
+				#if command[1] == "musicArtist":
+					#t = str(command[2])
+					#for i in range(3, len(command)):
+						#t = t+","+str(command[i])
+					#self.music["title"] = str(t)
+					##self.sync(syncAllInputs=True,resetScroll=False)
+				#if command[1] == "musicAlbum":
+					#t = str(command[2])
+					#for i in range(3, len(command)):
+						#t = t+","+str(command[i])
+					#self.music["title"] = str(t)
+					##self.sync(syncAllInputs=True,resetScroll=False)
+					
+		
+		command = msg.payload.decode("utf-8").split(",")
+		if command[0] == "light":
+			if len(command) == 5:
+				ser = command[1]
+				r = command[2]
+				g = command[3]
+				b = command[4]
+				
+				light = self.findSerialNum(ser)
+				if light:
+					light["lightR"] = min(max(float(r), 0), 255)
+					light["lightG"] = min(max(float(g), 0), 255)
+					light["lightB"] = min(max(float(b), 0), 255)
+		elif command[0] == "temperature":
+			if len(command) == 3:
+				ser = command[1]
+				temp = command[2]
+				
+				heater = self.findSerialNum(ser)
+				if heater:
+					heater["temperature"] = min(max(float(temp), 17), 23)
+		elif command[0] == "currentTemperature":
+			if len(command) == 4:
+				ser = command[1]
+				temp = command[2]
+				humidity = command[3]
+				
+				heater = self.findSerialNum(ser)
+				if heater:
+					heater["currentTemperature"] = temp
+					heater["currentHumidity"] = humidity
+		elif command[0] == "outlet":
+			if len(command) == 3:
+				ser = command[1]
+				state = command[2]
+				
+				outlet = self.findSerialNum(ser)
+				if outlet:
+					outlet["on"] = state
+		elif command[0] == "toggleOutlet":
+			if len(command) == 2:
+				ser = command[1]
+				
+				outlet = self.findSerialNum(ser)
+				if outlet:
+					outlet["on"] = not outlet["on"]
+		elif command[0] == "outletConsumption":
+			if len(command) == 3:
+				ser = command[1]
+				consumption = command[2]
+				
+				outlet = self.findSerialNum(ser)
+				if outlet:
+					outlet["consumption"] = consumption
+				
+				
 		self.sync(syncAllInputs=True,resetScroll=False)
 		
 	def MQTTSend(self, topic, msg):
 		self.MQTT.client.publish(topic, msg)
 		
-	def turnOutletOn(self, room, outlet, commit=True):
-		self.rooms[room]["outlets"][outlet]["on"] = True
-		if commit:
-			self.MQTTSend("sarah/house", "{0},outletOn,{1}".format(room,outlet))
-			
-	def turnOutletOff(self, room, outlet, commit=True):
-		self.rooms[room]["outlets"][outlet]["on"] = False
-		if commit:
-			self.MQTTSend("sarah/house", "{0},outletOff,{1}".format(room,outlet))
-				
+	def findSerialNum(self, ser):
+		if ser[0:2] == "LI":
+			for room in self.rooms:
+				for light in room["lights"]:
+					if ser == light["serialNum"]:
+						return light
+		elif ser[0:2] == "HE":
+			for room in self.rooms:
+				if ser == room["heaterSerialNum"]:
+					return room
+		elif ser[0:2] == "OU":
+			for room in self.rooms:
+				for outlet in room["outlets"]:
+					if ser == outlet["serialNum"]:
+						return outlet
+	
 	def toggleOutlet(self, room, outlet, commit=True):
 		self.rooms[room]["outlets"][outlet]["on"] = not self.rooms[room]["outlets"][outlet]["on"]
 		if commit:

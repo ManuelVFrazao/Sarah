@@ -33,19 +33,21 @@ class SarahMySQL():
 			room = {"name":row[1],"lights":[],"outlets":[]}
 			
 		
-			self.cur.execute("SELECT SetTo, Current FROM tblHeaters WHERE fkRooms = {0} LIMIT 1".format(pkRoom))
+			self.cur.execute("SELECT SetTo, Current, Humidity, SerialNum FROM tblHeaters WHERE fkRooms = {0} LIMIT 1".format(pkRoom))
 			for temperature in self.cur:
 				room["temperature"]=float(temperature[0])
 				room["currentTemperature"]=float(temperature[1])
+				room["currentHumidity"]=float(temperature[2])
+				room["heaterSerialNum"]=str(temperature[3])
 			
 			
-			self.cur.execute("SELECT Name, Red, Green, Blue FROM tblLights WHERE fkRooms = {0} ORDER BY pkLights".format(pkRoom))
+			self.cur.execute("SELECT Name, Red, Green, Blue, SerialNum FROM tblLights WHERE fkRooms = {0} ORDER BY pkLights".format(pkRoom))
 			for light in self.cur:
-				room["lights"] = room["lights"] + [{"name":light[0], "lightR":light[1], "lightG":light[2], "lightB":light[3]}]
+				room["lights"] = room["lights"] + [{"name":light[0], "lightR":light[1], "lightG":light[2], "lightB":light[3], "serialNum":light[4]}]
 			
-			self.cur.execute("SELECT Name, IsOn, Consumption FROM tblOutlets WHERE fkRooms = {0} ORDER BY pkOutlets".format(pkRoom))
+			self.cur.execute("SELECT Name, IsOn, Consumption, SerialNum FROM tblOutlets WHERE fkRooms = {0} ORDER BY pkOutlets".format(pkRoom))
 			for outlet in self.cur:
-				room["outlets"] = room["outlets"] + [{"name":outlet[0], "on":outlet[1], "consumption":outlet[2]}]
+				room["outlets"] = room["outlets"] + [{"name":outlet[0], "on":outlet[1], "consumption":outlet[2], "serialNum":outlet[3]}]
 			
 			print(room)
 			
