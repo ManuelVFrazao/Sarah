@@ -74,22 +74,22 @@ class SarahAI():
 				"Very well",
 				"Right away",
 				"Will do",
-				"I'll open the light at {2} percent",
-				"I'll open the {1} light at {2} percent",
-				"I'll open the {1} light in the {0} at {2} percent",
-				"I'll turn on the light at {2} percent",
-				"I'll turn on the {1} light at {2} percent",
-				"I'll turn on the {1} light in the {0} at {2} percent",
+				"I'll set the light to {2} percent",
+				"I'll set the {1} light to {2} percent",
+				"I'll set the {1} light in the {0} to {2} percent",
+				"I'll change on the light to {2} percent",
+				"I'll change on the {1} light to {2} percent",
+				"I'll change on the {1} light in the {0} to {2} percent",
 			],
 			"setLights":[
 				"Alright",
 				"Very well",
 				"Right away",
 				"Will do",
-				"I'll open the lights at {1} percent",
-				"I'll open the lights in the {0} at {1} percent",
-				"I'll turn on the lights at {1} percent",
-				"I'll turn on the lights in the {0} at {1} percent",
+				"I'll set the lights to {1} percent",
+				"I'll set the lights in the {0} to {1} percent",
+				"I'll change the lights to {1} percent",
+				"I'll change on the lights in the {0} to {1} percent",
 			],
 			"turnOffLight":[
 				"Alright",
@@ -439,7 +439,7 @@ class aiMqtt():
 		self.mqttClient.publish(self.topic, msg)
 				
 if __name__ == "__main__":
-	SarahAi = SarahAI()
+	SarahAi = SarahAI(None)
 	print(SarahAi.getDateFromWit('2016-01-18T00:00:00.000-05:00'))
 	while True:
 		SarahAi.listen()

@@ -58,3 +58,22 @@ body {
 input:focus:invalid {
   color: #7f7f7f;
 }
+
+
+@media only screen and (max-width: 768px) {
+	#page nav {
+		float:none;
+		display: block;
+		vertical-align: top;
+		width: 100%;
+	}
+	#main {
+		vertical-align: top;
+		display: block;
+		width: 100%;
+		padding-left: 20px;
+		padding-right: 20px;
+		border-left: none;
+		border-radius: 15px;
+	}
+}

@@ -15,6 +15,7 @@ import pygame
 import sarahAI
 import sarahMQTT
 import sarahMysql
+import sarahXBMC
 
 class SARaH:
 	def __init__(self):
@@ -41,6 +42,8 @@ class SARaH:
 		self.AI.mqtt = sarahAI.aiMqtt(self.MQTT.client, "sarah/house")
 		
 		self.MySQL = sarahMysql.SarahMySQL(self)
+		
+		self.xbmc = sarahXBMC.SarahXBMC()
 		
 		self.passCode = {
 			"code":"",
@@ -70,7 +73,38 @@ class SARaH:
 		self.inputs = []
 		
 		self.presets = [
-			
+			{
+				"name":"Home",
+				"action":""
+			},
+			{
+				"name":"Away",
+				"action":""
+			},
+			{
+				"name":"Morning",
+				"action":""
+			},
+			{
+				"name":"Evening",
+				"action":""
+			},
+			{
+				"name":"Night",
+				"action":""
+			},
+			{
+				"name":"Movie",
+				"action":""
+			},
+			{
+				"name":"Vacation",
+				"action":""
+			},
+			{
+				"name":"Party",
+				"action":""
+			},
 		]
 		self.customActions = [
 			{
@@ -118,22 +152,6 @@ class SARaH:
 			"loop":False,
 		}
 		self.mediaDevices = [
-			{
-				"name":"Livingroom TV",
-				"setTo":"Kodi",
-			},
-			{
-				"name":"Bedroom TV",
-				"setTo":"Cable",
-			},
-			{
-				"name":"Kitchen TV",
-				"setTo":"Cable",
-			},
-			{
-				"name":"Kid's TV",
-				"setTo":"Kodi",
-			},
 		]
 		self.currentMediaDevice = 0
 		
@@ -150,7 +168,7 @@ class SARaH:
 					
 					inputLabel(self, "{0}", [lambda:self.getTime()], 160, 70, fontSize=72, align=(0.5,0)),
 					inputLabel(self, "{0}", [lambda:self.getDate()], 160, 150, fontSize=38, align=(0.5,0)),
-					inputLabel(self, "{0}", [lambda:self.getFullDate()], 160, 185, fontSize=18, align=(0.5,0)),
+					inputLabel(self, "{0}", [lambda:self.getFullDate()], 160, 185, fontSize=16, align=(0.5,0)),
 					
 				]
 			},
@@ -163,7 +181,16 @@ class SARaH:
 					inputButton(self, lambda:self.changePage("multimedia"), 204,10, 48,48, icon="images/Icons/musical115.png"),
 					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 262,10, 48,48, icon="images/Icons/button10.png"),
 					
-					inputTextButton(self, lambda:self.changePage("house"), 20,80, 200,48, "Hello world")
+					inputTextButton(self, [], 20,80, 110,40, "{0}", [lambda:self.presets[self.buttonScroll]["name"]], condition=lambda:self.buttonScroll < len(self.presets)),
+					inputTextButton(self, [], 20,130, 110,40, "{0}", [lambda:self.presets[self.buttonScroll+2]["name"]], condition=lambda:self.buttonScroll+2 < len(self.presets)),
+					inputTextButton(self, [], 20,180, 110,40, "{0}", [lambda:self.presets[self.buttonScroll+4]["name"]], condition=lambda:self.buttonScroll+4 < len(self.presets)),
+					
+					inputTextButton(self, [], 140,80, 110,40, "{0}", [lambda:self.presets[self.buttonScroll+1]["name"]], condition=lambda:self.buttonScroll+1 < len(self.presets)),
+					inputTextButton(self, [], 140,130, 110,40, "{0}", [lambda:self.presets[self.buttonScroll+3]["name"]], condition=lambda:self.buttonScroll+3 < len(self.presets)),
+					inputTextButton(self, [], 140,180, 110,40, "{0}", [lambda:self.presets[self.buttonScroll+5]["name"]], condition=lambda:self.buttonScroll+5 < len(self.presets)),
+					
+					inputButton(self, lambda:self.scrollButtons(-6, 6, self.presets), 260,80, 40,40, icon="images/Icons/up154.png"),
+					inputButton(self, lambda:self.scrollButtons(6, 6, self.presets), 260,180, 40,40, icon="images/Icons/down102.png"),
 				]
 			},
 			"rooms":{
@@ -271,9 +298,9 @@ class SARaH:
 					inputButton(self, lambda:self.scrollButtons(-6, 3, self.mediaDevices), 204,10, 48,48, icon="images/Icons/left204.png"),
 					inputButton(self, lambda:self.scrollButtons(6, 3, self.mediaDevices), 262,10, 48,48, icon="images/Icons/right204.png"),
 					
-					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll)], 20,80, 280,40, "{0} ({1})", [lambda:self.mediaDevices[self.buttonScroll]["name"], lambda:self.mediaDevices[self.buttonScroll]["setTo"]], condition=lambda:self.buttonScroll < len(self.mediaDevices)),
-					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+1)], 20,130, 280,40, "{0} ({1})", [lambda:self.mediaDevices[self.buttonScroll+1]["name"], lambda:self.mediaDevices[self.buttonScroll+1]["setTo"]], condition=lambda:self.buttonScroll+1 < len(self.mediaDevices)),
-					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+2)], 20,130, 280,40, "{0} ({1})", [lambda:self.mediaDevices[self.buttonScroll+2]["name"], lambda:self.mediaDevices[self.buttonScroll+2]["setTo"]], condition=lambda:self.buttonScroll+2 < len(self.mediaDevices)),
+					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll)], 20,80, 280,40, "{0}", [lambda:self.mediaDevices[self.buttonScroll]["name"]], condition=lambda:self.buttonScroll < len(self.mediaDevices)),
+					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+1)], 20,130, 280,40, "{0}", [lambda:self.mediaDevices[self.buttonScroll+1]["name"]], condition=lambda:self.buttonScroll+1 < len(self.mediaDevices)),
+					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+2)], 20,130, 280,40, "{0}", [lambda:self.mediaDevices[self.buttonScroll+2]["name"]], condition=lambda:self.buttonScroll+2 < len(self.mediaDevices)),
 				]
 			},
 			"music":{
@@ -732,8 +759,9 @@ class SARaH:
 						return light
 		elif ser[0:2] == "HE":
 			for room in self.rooms:
-				if ser == room["heaterSerialNum"]:
-					return room
+				if "heaterSerialNum" in room:
+					if ser == room["heaterSerialNum"]:
+						return room
 		elif ser[0:2] == "OU":
 			for room in self.rooms:
 				for outlet in room["outlets"]:

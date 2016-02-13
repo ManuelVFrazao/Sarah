@@ -54,11 +54,11 @@ class SarahMySQL():
 			self.class_.rooms = self.class_.rooms + [room]
 		
 		self.class_.mediaDevices = []
-		self.cur.execute("SELECT pkDevices, Name, SetTo FROM tblDevices ORDER BY pkDevices")
+		self.cur.execute("SELECT pkDevices, Name, IPAdress FROM tblDevices ORDER BY pkDevices")
 		devices = list(self.cur).copy()
 		for row in devices:
 			pkDevice = row[0]
-			device = {"name":row[1], "setTo":row[2]}
+			device = {"name":row[1], "IPAdress":row[2]}
 			
 			self.class_.mediaDevices = self.class_.mediaDevices + [device]
 			

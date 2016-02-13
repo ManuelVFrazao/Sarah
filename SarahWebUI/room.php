@@ -38,6 +38,7 @@
 <html>
 	<head>
 		<link href="style.css" rel="stylesheet">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	</head>
 	<body>
 		<section id="page">
@@ -134,7 +135,18 @@
 										<h2>".$row["Name"]."</h2>
 										<h3>".$row["Description"]."</h3>
 										<form>
-											On: <input name='IsOn' type='range' min=0 max=1 value=".$row["IsOn"]." >
+											On: <select name='IsOn'>
+											<option value='0' ";
+											if ($row["IsOn"] == 0) {
+												echo "selected";
+											}
+											echo ">Off</option>
+											<option value='1' ";
+											if ($row["IsOn"] == 1) {
+												echo "selected";
+											}
+											echo ">On</option>
+											</select>
 											<br />
 											Consumption: <input type='text' value=".$row["Consumption"]." readonly>
 											<br />
