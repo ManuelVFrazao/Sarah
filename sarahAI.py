@@ -5,6 +5,8 @@ import threading
 import calendar
 import random
 import datetime
+from urllib.request import urlopen
+import io
 
 import wolframalpha
 import speech_recognition as sr
@@ -20,11 +22,13 @@ class SarahAI():
 		self.isTriggered = False
 		self.keepListening = False
 		self.talkProcess = None
+		self.canSearch = True
 		
 		self.witAiKey = witaiKey
 		
 		self.out = ""
 		self.recognizedText = ""
+		self.currentQuery = ""
 		
 		self.mqtt = None
 		
@@ -162,6 +166,7 @@ class SarahAI():
 	def ask(self, query, tellAll=False):
 		print("Searching for:", query)
 		self.out = "Searching"
+		self.currentQuery = query
 		res = self.WolframClient.query(query)
 		
 		if len(res.pods):
@@ -175,27 +180,61 @@ class SarahAI():
 						#self.say(pod.text)
 						numSubpod = 0
 						subpodText = ""
+						#subpodImage = []
 						for subpod in pod:
 							subpodText = subpodText + " \n " +subpod.title + " | " + subpod.text
-						result = result + [{"title":pod.title,"text":subpodText}]
-			except:
-				print("Error parsing")
+							#subpodImage = subpodImage + [subpod.node.find('img').attrib["src"]]
+						result = result + [{"title":pod.title,"text":subpodText, "imageURL":None, "wait":0}]
+					else:
+						subpodImage = None
+						for subpod in pod:
+							subpodImage = subpod.node.find('img').attrib["src"]
+						result = result + [{"title":pod.title,"text":"", "imageURL":subpodImage, "wait":5}]
+			except Exception as e:
+				print("Error parsing", e)
 				pass
+			try:
+				images = {}
+				for r in result:
+					if r["imageURL"]:
+						image_str = urlopen(r["imageURL"]).read()
+						image_file = io.BytesIO(image_str)
+						r["image"] = image_file
+					else:
+						r["image"] = None
+			except Exception as e:
+				print("Error getting images", e)
+			pass
+			print()
+			print()
 			print(result)
+			print()
+			print()
 			#self.out = str(result[0])
 			self.out = "Outputing results"
 			if tellAll:
 				for r in result:
+					self.setImage(r["image"])
+					#self.recognizedText = r["text"]
 					self.say(r["title"] + ":" + r["text"])
+					time.sleep(r["wait"])
 			else:
 				if len(result) >= 2:
+					self.setImage(result[1]["image"])
+					#self.recognizedText = result[1]["text"]
 					self.say(result[1]["text"])
+					time.sleep(result[1]["wait"])
 				else:
+					self.setImage(result[0]["image"])
+					#self.recognizedText = result[0]["text"]
 					self.say(result[0]["text"])
+					time.sleep(result[0]["wait"])
+			self.setImage(None)
 		else:
 			print( len(res.pods))
 			self.out = "No results"
 			self.say("No results")
+		self.currentQuery = ""
 	
 	def listen(self):
 		self.out = "Listening"
@@ -383,6 +422,17 @@ class SarahAI():
 		self.talkProcess.wait()
 		self.talkProcess = None
 		time.sleep(0.2)
+		
+	def setImage(self, image):
+		print("Image:", image)
+		if image:
+			self.class_.inputsValue["sarahImage"] = image
+			self.class_.sync(True)
+			self.class_.changePage("sarahResults")
+		else:
+			self.class_.inputsValue["sarahImage"] = None
+			self.class_.sync(True)
+			self.class_.changePage("sarah")
 		
 	def stopTalking(self):
 		if self.talkProcess:

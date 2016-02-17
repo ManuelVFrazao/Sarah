@@ -16,6 +16,7 @@ import sarahAI
 import sarahMQTT
 import sarahMysql
 import sarahXBMC
+import sarahSerial
 
 class SARaH:
 	def __init__(self):
@@ -45,12 +46,7 @@ class SARaH:
 		
 		self.xbmc = sarahXBMC.SarahXBMC()
 		
-		self.passCode = {
-			"code":"",
-			"unlockCode":"1234",
-			"state":"armed",
-			"attempts":0,
-		}
+		self.serial = sarahSerial.SarahSerial()
 		
 		self.rooms = [
 			#{"name":"Kitchen","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Oven","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Coffee machine","on":True,"consumption":0},{"name":"Toaster","on":True,"consumption":0}]},
@@ -68,7 +64,8 @@ class SARaH:
 			"lightSlider":100,
 			"temperatureSlider":20.0,
 			"RGBWheel":(0,0, 0,0),
-			"musicVolumeSlider":50
+			"musicVolumeSlider":50,
+			"sarahImage":"",
 		}
 		self.inputs = []
 		
@@ -155,6 +152,11 @@ class SARaH:
 		]
 		self.currentMediaDevice = 0
 		
+		self.passCode = {
+			"code":"",
+			"state":"passKey",
+		}
+		
 		self.CurrentPage = "home"
 		self.pages = {
 			"home":{
@@ -164,7 +166,7 @@ class SARaH:
 					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.changePage("sarah"), 68,10, 48,48, icon="images/Icons/microphone83.png"),
 					inputButton(self, lambda:self.changePage("keypad"), 126,10, 48,48, icon="images/Icons/key170.png"),
-					inputButton(self, lambda:self.changePage("home"), 262,10, 48,48, icon="images/Icons/configuration20.png"),
+					inputButton(self, lambda:self.changePage("options"), 262,10, 48,48, icon="images/Icons/configuration20.png"),
 					
 					inputLabel(self, "{0}", [lambda:self.getTime()], 160, 70, fontSize=72, align=(0.5,0)),
 					inputLabel(self, "{0}", [lambda:self.getDate()], 160, 150, fontSize=38, align=(0.5,0)),
@@ -178,7 +180,8 @@ class SARaH:
 				"inputs":[
 					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, [lambda:self.changePage("customActions"),lambda:self.scrollButtons(0, 3, absolute=True)], 146,10, 48,48, icon="images/Icons/code42.png"),
-					inputButton(self, lambda:self.changePage("multimedia"), 204,10, 48,48, icon="images/Icons/musical115.png"),
+					#inputButton(self, lambda:self.changePage("multimedia"), 204,10, 48,48, icon="images/Icons/musical115.png"),
+					inputButton(self, lambda:self.changePage("house"), 204,10, 48,48, icon="images/Icons/musical115.png"),
 					inputButton(self, [lambda:self.changePage("rooms"),lambda:self.scrollButtons(0, 6, absolute=True)], 262,10, 48,48, icon="images/Icons/button10.png"),
 					
 					inputTextButton(self, [], 20,80, 110,40, "{0}", [lambda:self.presets[self.buttonScroll]["name"]], condition=lambda:self.buttonScroll < len(self.presets)),
@@ -285,57 +288,20 @@ class SARaH:
 					inputButton(self, lambda:self.AIListen(), 262,10, 48,48, icon="images/Icons/microphone83.png"),
 					
 					inputLabel(self, "Status:\n{0}", [lambda:"{0}".format(str(self.AI.out)) if str(self.AI.out) else "Idle"], 160, 40, align=(0.5,0.5)),
-					inputLabel(self, "{0}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else ""], 20, 80, w=280, align=(0,0)),
+					inputLabel(self, "{0}\n{1}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else "", lambda:"Searching for: {0}".format(str(self.AI.currentQuery)) if str(self.AI.currentQuery) else ""], 20, 80, w=280, align=(0,0)),
 					
 				]
 			},
-			"multimedia":{
-				"name":"Multimedia",
-				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
+			"sarahResults":{
+				"name":"Sarah Results",
+				"background":pygame.image.load("images/Backgrounds/1x1.png").convert_alpha(),
 				"inputs":[
-					inputButton(self, [lambda:self.scrollButtons(0, absolute=True), lambda:self.changePage("house")], 10,10, 48,48, icon="images/Icons/house139.png"),
-					inputButton(self, lambda:self.changePage("music"), 146,10, 48,48, icon="images/Icons/musical115.png"),
-					inputButton(self, lambda:self.scrollButtons(-6, 3, self.mediaDevices), 204,10, 48,48, icon="images/Icons/left204.png"),
-					inputButton(self, lambda:self.scrollButtons(6, 3, self.mediaDevices), 262,10, 48,48, icon="images/Icons/right204.png"),
+					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, [lambda:self.changePage("sarah"),lambda:self.AIListen()], 262,10, 48,48, icon="images/Icons/microphone83.png"),
 					
-					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll)], 20,80, 280,40, "{0}", [lambda:self.mediaDevices[self.buttonScroll]["name"]], condition=lambda:self.buttonScroll < len(self.mediaDevices)),
-					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+1)], 20,130, 280,40, "{0}", [lambda:self.mediaDevices[self.buttonScroll+1]["name"]], condition=lambda:self.buttonScroll+1 < len(self.mediaDevices)),
-					inputTextButton(self, [lambda:self.mediaDevice(self.buttonScroll+2)], 20,130, 280,40, "{0}", [lambda:self.mediaDevices[self.buttonScroll+2]["name"]], condition=lambda:self.buttonScroll+2 < len(self.mediaDevices)),
-				]
-			},
-			"music":{
-				"name":"Music",
-				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
-				"inputs":[
-					inputButton(self, lambda:self.changePage("multimedia"), 10,10, 48,48, icon="images/Icons/house139.png"),
-					inputButton(self, lambda:self.inputs[3].slide(-10,True,True), 204,10, 48,48, icon="images/Icons/down102.png"),
-					inputButton(self, lambda:self.inputs[3].slide(10,True,True), 262,10, 48,48, icon="images/Icons/up154.png"),
-				
-					inputSlider(self, "musicVolumeSlider", lambda:self.commitValues(), 100, 0, 100, 1, 78,20, 106,20, vertical=False, reversed_=False),
-					inputLabel(self, "Volume: {0}%", [lambda:self.inputsValue["musicVolumeSlider"]], 78,50),
-					
-					inputButton(self, [lambda:self.setMusicShuffle(1)], 20,172, 48,48, icon="images/Icons/shuffle21.png", condition=lambda:self.music["shuffle"]==False),
-					inputButton(self, [lambda:self.setMusicShuffle(0)], 20,172, 48,48, icon="images/Icons/shuffle21.png", condition=lambda:self.music["shuffle"]==True),
-					
-					inputButton(self, [lambda:self.setMusicLoop(1)], 78,172, 48,48, icon="images/Icons/actualization.png", condition=lambda:self.music["loop"]==False),
-					inputButton(self, [lambda:self.setMusicLoop(0)], 78,172, 48,48, icon="images/Icons/actualization.png", condition=lambda:self.music["loop"]==True),
-					
-					inputButton(self, [lambda:self.setMusicSeek(-1)], 136,172, 48,48, icon="images/Icons/rewind43.png"),
-					
-					inputButton(self, [lambda:self.setMusicStatus(1)], 194,172, 48,48, icon="images/Icons/arrow626.png", condition=lambda:self.music["playing"]==False),
-					inputButton(self, [lambda:self.setMusicStatus(2)], 194,172, 48,48, icon="images/Icons/pause43.png", condition=lambda:self.music["playing"]==True),
-					
-					inputButton(self, [lambda:self.setMusicSeek(1)], 252,172, 48,48, icon="images/Icons/fast41.png"),
-					
-					inputLabel(self, "{0}\n{1}\n{2}", [lambda:self.music["title"],lambda:self.music["artist"],lambda:self.music["album"]], 20,80, fontSize=28, maxChar=20)
-					
-				]
-			},
-			"mediaRemote":{
-				"name":"Remote",
-				"background":pygame.image.load("images/Backgrounds/1x0.png").convert_alpha(),
-				"inputs":[
-					inputButton(self, lambda:self.changePage("multimedia"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputLabel(self, "Status:\n{0}", [lambda:"{0}".format(str(self.AI.out)) if str(self.AI.out) else "Idle"], 160, 40, align=(0.5,0.5)),
+					#inputLabel(self, "{0}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else ""], 20, 80, w=280, align=(0,0)),
+					inputImage(self, "sarahImage", 160,150,280,140, (0.5,0.5)),
 				]
 			},
 			"keypad":{
@@ -389,6 +355,25 @@ class SARaH:
 				"inputs":[
 					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.deleteCustomAction(), 262,10, 48,48, icon="images/Icons/cross100.png"),
+				]
+			},
+			"options":{
+				"name":"Options",
+				"background":pygame.image.load("images/Backgrounds/1x0.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					
+					inputToggle(self, lambda:self.AIThread.keepListening, lambda:self.AIKeepListening(), 150,120,10),
+					inputToggle(self, lambda:self.AI.keepListening, lambda:self.AIKeepTriggered(), 150,150,10),
+					inputToggle(self, lambda:self.AI.isTriggered, lambda:self.AIIsTriggered(), 150,180,10),
+					inputToggle(self, lambda:self.AI.canSearch, lambda:self.AIIsTriggered(), 150,210,10),
+				
+					inputLabel(self, "Sarah", [], 90, 80, align=(0.5,0)),
+					inputLabel(self, "Autolisten", [], 20, 120, align=(0,0.5)),
+					inputLabel(self, "Autotrigger", [], 20, 150, align=(0,0.5)),
+					inputLabel(self, "Triggered", [], 20, 180, align=(0,0.5)),
+					inputLabel(self, "Search", [], 20, 210, align=(0,0.5)),
+					
 				]
 			},
 		}
@@ -452,7 +437,7 @@ class SARaH:
 		return "{0}, {1} the {2}{3} {4}".format(wd, m, d, suffix, y)
 		
 	def codeDigits(self):
-		if self.passCode["state"] == "armed":
+		if self.passCode["state"] == "passKey":
 			return "*" * len(self.passCode["code"])
 		else:
 			return self.passCode["code"]
@@ -461,12 +446,13 @@ class SARaH:
 		self.passCode["code"] = self.passCode["code"] + str(digit)
 		
 	def codeCancel(self):
-		if self.passCode["state"] == "armed":
+		if self.passCode["state"] == "passKey":
 			self.passCode["code"] = ""
 			
 	def codeConfirm(self):
-		if self.passCode["state"] == "armed":
-			if self.passCode["code"] == self.passCode["unlockCode"]:
+		if self.passCode["state"] == "passKey":
+			if self.passCode["code"]:
+				self.serial.send(b(self.passCode["code"]))
 				self.passCode["code"] = ""
 				self.passCode["state"] = "normal"
 				
@@ -587,18 +573,8 @@ class SARaH:
 			for inp in self.inputs:
 				inp.sync()
 
-	def toggle(self, var, x, y, default=None, sync=None, commit=False):
-		if self.inputsValue[var] == x:
-			self.inputsValue[var] = y
-		elif self.inputsValue[var] == y:
-			self.inputsValue[var] = x
-		else:
-			if default is not None:
-				self.inputsValue[var] = default
-		if commit:
-			self.commitValues()
-		if sync:
-			self.sync(True)
+	def toggle(self, var, on):
+		exec(var + " = " + on)
 
 	def AIKeepListening(self):
 		self.AIThread.keepListening = not self.AIThread.keepListening
@@ -616,6 +592,8 @@ class SARaH:
 			self.AIThread.listen = True
 		else:
 			self.AI.stopTalking()
+			
+		
 			
 	def MQTTReceive(self, client, userdata, msg):
 		print(msg.topic+" "+str(msg.payload))
@@ -1202,7 +1180,99 @@ class inputLabel():
 			wrapedText = wrapedText + [textLine]
 			textLine = ""
 		return wrapedText
+
+class inputToggle():
+	def __init__(self, class_, var, action, x=0, y=0, r=10, color=(127,127,127), cursorColor=(255,255,255), activeColor=(127,127,255), condition=lambda:True):
+		self.class_ = class_
+		self.screen = class_.screen
+		self.var = var
+		self.action = action
+		self.x = x
+		self.y = y
+		self.r = r
+		self.color = color
+		self.cursorColor = cursorColor
+		self.activeColor = activeColor
+		self.active = False
+		self.toggledOn = False
+		self.condition = condition
+	def draw(self):
+		if not self.condition():
+			return
+		color = self.cursorColor
+		if self.active:
+			color = self.activeColor
+		pygame.draw.rect(self.screen, self.color, pygame.Rect(self.x-self.r, self.y-self.r, 2*self.r, 2*self.r))
+		pygame.draw.circle(self.screen, self.color, (self.x-self.r, self.y), self.r)
+		pygame.draw.circle(self.screen, self.color, (self.x+self.r, self.y), self.r)
+		pygame.draw.rect(self.screen, (0,0,0), pygame.Rect(self.x-self.r+1, self.y-self.r+1, 2*self.r-2, 2*self.r-2))
+		pygame.draw.circle(self.screen, (0,0,0), (self.x-self.r, self.y), self.r-1)
+		pygame.draw.circle(self.screen, (0,0,0), (self.x+self.r, self.y), self.r-1)
+		
+		if self.toggledOn:
+			pygame.draw.circle(self.screen, color, (self.x+self.r, self.y), self.r-3)
+		else:
+			pygame.draw.circle(self.screen, color, (self.x-self.r, self.y), self.r-3)
+	def update(self):
+		if not self.condition():
+			return
+		self.toggledOn = self.var() is True
+	def sync(self):
+		if not self.condition():
+			return
+		return
+	def mouseInside(self, x, y):
+		if boxCollision(self.x-self.r*2, self.y-self.r, self.x+self.r*2, self.y+self.r, x, y):
+			return True
+		return False
+	def mouseDown(self, x, y):
+		if not self.condition():
+			return
+		if self.mouseInside(x, y):
+			self.active = True
+	def mouseUp(self, x, y):
+		if self.active:
+			self.active = False
+			if self.action:
+				self.action()
 			
+class inputImage():
+	def __init__(self, class_, var, x=0, y=0, w=0, h=0, align=(0,0), condition=lambda:True):
+		self.class_ = class_
+		self.screen = class_.screen
+		self.var = var
+		self.x = x
+		self.y = y
+		self.w = w
+		self.h = h
+		self.align = align
+		self.condition = condition
+		self.image = None
+	def draw(self):
+		if not self.condition():
+			return
+		if self.image:
+			width, height = self.image.get_size()
+			self.screen.blit(self.image, (self.x-(width*self.align[0]),(self.y-(height*self.align[1]))))
+	def update(self):
+		if not self.condition():
+			return
+	def sync(self):
+		if not self.condition():
+			return
+		if self.class_.inputsValue[self.var]:
+			try:
+				self.image = pygame.image.load(self.class_.inputsValue[self.var]).convert_alpha()
+				self.image = aspectScale(self.image, self.w,self.h)
+			except Exception as e:
+				print(e)
+		else:
+			self.image = None
+	def mouseDown(self, x, y):
+		return
+	def mouseUp(self, x, y):
+		return
+		
 
 def boxCollision(x1, y1, x2, y2, xC, yC):
 	if xC >= x1 and xC <= x2 and yC >= y1 and yC <= y2:
@@ -1235,10 +1305,27 @@ def getHexFromRGB(c):
 		b = "0"+b
 	f = "#{0}{1}{2}".format(r, g, b)
 	return f
+	
+def aspectScale(img, w, h):
+	ix,iy = img.get_size()
+	sx = ix/w
+	sy = iy/h
+	ax = ix/iy
+	ay = iy/ix
+	if sx >= sy:
+		nx = w
+		ny = ay*w
+	else:
+		nx = ax*h
+		ny = h
+	print(nx, ny)
+	return pygame.transform.smoothscale(img, (int(nx),int(ny)))
+	
 
 if __name__ == "__main__":
 	sarah = SARaH()
 	#print(getHexFromRGB(getRGBFromColorWheel(0,50,100)))
+	print(aspectScale(pygame.image.load("images/Backgrounds/1x1.png").convert_alpha(), 160, 240))
 	while sarah.keepRunning:
 		sarah.run()
 		
