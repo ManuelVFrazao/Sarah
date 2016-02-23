@@ -145,6 +145,13 @@ class SarahAI():
 				"I'm sorry, there is no lights named {1} in that room",
 				"I'm sorry, there is no lights named {1} in the {0}",
 			],
+			"cantSearch":[
+				"I'm sorry, I am not allowed to search",
+				"I'm sorry, I am not allowed to search for {0}",
+				"I'm sorry, searching is disabled",
+				"I'm sorry, I can't search",
+				"I'm sorry, I can't search for {0}",
+			],
 			
 			
 			"MyName":[
@@ -164,6 +171,9 @@ class SarahAI():
 		}
 	
 	def ask(self, query, tellAll=False):
+		if not self.canSearch:
+			self.say(self.pickCatchPhrase("cantSearch").format(query))
+			return
 		print("Searching for:", query)
 		self.out = "Searching"
 		self.currentQuery = query
@@ -172,8 +182,8 @@ class SarahAI():
 		if len(res.pods):
 			#for idx,pod in enumerate(res.pods):
 			result = []
-			try:
-				for pod in res.pods:
+			for pod in res.pods:
+				try:
 					#print(pod)
 					if pod.text:
 						#print(pod.title, pod.text)
@@ -181,18 +191,26 @@ class SarahAI():
 						numSubpod = 0
 						subpodText = ""
 						#subpodImage = []
-						for subpod in pod:
-							subpodText = subpodText + " \n " +subpod.title + " | " + subpod.text
-							#subpodImage = subpodImage + [subpod.node.find('img').attrib["src"]]
-						result = result + [{"title":pod.title,"text":subpodText, "imageURL":None, "wait":0}]
-					else:
-						subpodImage = None
+						
+						#for subpod in pod:
+							#subpodText = subpodText + " \n " +subpod.title + " | " + subpod.text
+							##subpodImage = subpodImage + [subpod.node.find('img').attrib["src"]]
+						#result = result + [{"title":pod.title,"text":subpodText, "imageURL":None, "wait":0}]
+						
+						result = result + [{"title":pod.title,"text":"", "imageURL":None, "wait":0}]
 						for subpod in pod:
 							subpodImage = subpod.node.find('img').attrib["src"]
-						result = result + [{"title":pod.title,"text":"", "imageURL":subpodImage, "wait":5}]
-			except Exception as e:
-				print("Error parsing", e)
-				pass
+							result = result + [{"title":subpod.title,"text":subpod.text, "imageURL":subpodImage, "wait":0}]
+					else:
+						subpodImage = None
+						result = result + [{"title":pod.title,"text":"", "imageURL":None, "wait":0}]
+						for subpod in pod:
+							#print(subpod.node.find('img').attrib)
+							subpodImage = subpod.node.find('img').attrib["src"]
+							result = result + [{"title":subpod.title,"text":"", "imageURL":subpodImage, "wait":5}]
+				except Exception as e:
+					print("Error parsing", e)
+					pass
 			try:
 				images = {}
 				for r in result:
@@ -219,16 +237,16 @@ class SarahAI():
 					self.say(r["title"] + ":" + r["text"])
 					time.sleep(r["wait"])
 			else:
-				if len(result) >= 2:
-					self.setImage(result[1]["image"])
+				if len(result) >= 4:
+					self.setImage(result[3]["image"])
 					#self.recognizedText = result[1]["text"]
+					self.say(result[3]["text"])
+					time.sleep(result[3]["wait"])
+				else:
+					self.setImage(result[1]["image"])
+					#self.recognizedText = result[0]["text"]
 					self.say(result[1]["text"])
 					time.sleep(result[1]["wait"])
-				else:
-					self.setImage(result[0]["image"])
-					#self.recognizedText = result[0]["text"]
-					self.say(result[0]["text"])
-					time.sleep(result[0]["wait"])
 			self.setImage(None)
 		else:
 			print( len(res.pods))
@@ -426,6 +444,8 @@ class SarahAI():
 	def setImage(self, image):
 		print("Image:", image)
 		if image:
+			self.class_.inputsValue["sarahImage"] = None
+			self.class_.sync(True)
 			self.class_.inputsValue["sarahImage"] = image
 			self.class_.sync(True)
 			self.class_.changePage("sarahResults")
@@ -476,9 +496,9 @@ class aiThread(threading.Thread):
 				self.ai.listen()
 				if (not self.keepListening) and (not self.ai.isTriggered):
 					self.listen = False
+			time.sleep(0.1)
 			self.ai.out = ""
 			self.ai.recognizedText = ""
-			time.sleep(0.1)
 
 class aiMqtt():
 	def __init__(self, mqttClient, topic):

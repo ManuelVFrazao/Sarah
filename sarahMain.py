@@ -7,6 +7,7 @@ import threading
 import calendar
 import math
 import re
+import random
 
 import pygame
 #import numpy as N
@@ -23,6 +24,7 @@ class SARaH:
 		pygame.init()
 		#self.screen = pygame.display.set_mode((320, 240),(pygame.FULLSCREEN))
 		self.screen = pygame.display.set_mode((320, 240))
+		pygame.display.set_caption("SARaH")
 		self.keepRunning = True
 		#pygame.mouse.set_visible(False)
 		self.mousePressed = False
@@ -47,6 +49,9 @@ class SARaH:
 		self.xbmc = sarahXBMC.SarahXBMC()
 		
 		self.serial = sarahSerial.SarahSerial()
+		self.serialThread = sarahSerial.SerialThread(self.serial)
+		self.serialThread.daemon = True
+		self.serialThread.start()
 		
 		self.rooms = [
 			#{"name":"Kitchen","lights":[{"name":"Ceiling","lightR":127,"lightG":127,"lightB":127},{"name":"Oven","lightR":127,"lightG":127,"lightB":127},],"temperature":20.0,"currentTemperature":19.5,"outlets":[{"name":"Coffee machine","on":True,"consumption":0},{"name":"Toaster","on":True,"consumption":0}]},
@@ -65,7 +70,19 @@ class SARaH:
 			"temperatureSlider":20.0,
 			"RGBWheel":(0,0, 0,0),
 			"musicVolumeSlider":50,
+			
 			"sarahImage":"",
+			
+			"waterLeakSensor":"images/Icons/traffic20.png",
+			"fireSensor":"images/Icons/ghost7.png",
+			"naturalGazSensor":"",
+			
+			"sensor1":"images/Icons/ghost7.png",
+			"sensor1Status":"images/Icons/traffic20.png",
+			"sensor2":"images/Icons/ghost7.png",
+			"sensor2Status":"images/Icons/traffic20.png",
+			"sensor3":"images/Icons/ghost7.png",
+			"sensor3Status":"images/Icons/traffic20.png",
 		}
 		self.inputs = []
 		
@@ -139,22 +156,41 @@ class SARaH:
 		]
 		self.buttonScroll = 0
 		
-		self.music = {
-			"status":"Stopped",
-			"playing":False,
-			"title":"The quick brown fox jumps over the lazy dog",
-			"artist":"The quick brown fox jumps over the lazy dog",
-			"album":"The quick brown fox jumps over the lazy dog",
-			"shuffle":False,
-			"loop":False,
-		}
 		self.mediaDevices = [
 		]
-		self.currentMediaDevice = 0
 		
 		self.passCode = {
 			"code":"",
 			"state":"passKey",
+		}
+		
+		self.doors = [
+			
+		]
+		self.sensors = {
+			"leak":"Triggered",
+			"fire":"Missing",
+			"gaz":"Normal",
+			"security":[
+				{"type":"camera","name":"Front Door","status":"Normal","enabled":True},
+				{"type":"camera","name":"Yard","status":"Normal","enabled":True},
+				{"type":"pirSensor","name":"Hallway","status":"Triggered","enabled":True},
+				{"type":"door","name":"Front Door","status":"Normal","enabled":True},
+				{"type":"door","name":"Back Door","status":"Normal","enabled":True},
+				{"type":"window","name":"Master Bedroom","status":"Normal","enabled":True},
+				{"type":"window","name":"Kid's Bedroom","status":"Normal","enabled":True},
+			],
+		}
+		
+		self.gameOfLife = [
+		]
+		self.gameOfLifeDelay = 10
+		
+		self.confirmation = {
+			"confirm":lambda:None,
+			"cancel":lambda:None,
+			"title":"Confirm",
+			"message":"Please confirm",
 		}
 		
 		self.CurrentPage = "home"
@@ -165,7 +201,7 @@ class SARaH:
 				"inputs":[
 					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.changePage("sarah"), 68,10, 48,48, icon="images/Icons/microphone83.png"),
-					inputButton(self, lambda:self.changePage("keypad"), 126,10, 48,48, icon="images/Icons/key170.png"),
+					inputButton(self, lambda:self.changePage("security"), 126,10, 48,48, icon="images/Icons/key170.png"),
 					inputButton(self, lambda:self.changePage("options"), 262,10, 48,48, icon="images/Icons/configuration20.png"),
 					
 					inputLabel(self, "{0}", [lambda:self.getTime()], 160, 70, fontSize=72, align=(0.5,0)),
@@ -287,6 +323,8 @@ class SARaH:
 					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.AIListen(), 262,10, 48,48, icon="images/Icons/microphone83.png"),
 					
+					inputGameOfLife(self, 20,80),
+					
 					inputLabel(self, "Status:\n{0}", [lambda:"{0}".format(str(self.AI.out)) if str(self.AI.out) else "Idle"], 160, 40, align=(0.5,0.5)),
 					inputLabel(self, "{0}\n{1}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else "", lambda:"Searching for: {0}".format(str(self.AI.currentQuery)) if str(self.AI.currentQuery) else ""], 20, 80, w=280, align=(0,0)),
 					
@@ -299,9 +337,64 @@ class SARaH:
 					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, [lambda:self.changePage("sarah"),lambda:self.AIListen()], 262,10, 48,48, icon="images/Icons/microphone83.png"),
 					
+					inputGameOfLife(self, 20,80),
+					
 					inputLabel(self, "Status:\n{0}", [lambda:"{0}".format(str(self.AI.out)) if str(self.AI.out) else "Idle"], 160, 40, align=(0.5,0.5)),
 					#inputLabel(self, "{0}", [lambda:"You said: {0}".format(str(self.AI.recognizedText)) if str(self.AI.recognizedText) else ""], 20, 80, w=280, align=(0,0)),
 					inputImage(self, "sarahImage", 160,150,280,140, (0.5,0.5)),
+				]
+			},
+			"security":{
+				"name":"Security",
+				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.changePage("sensors"), 146,10, 48,48, icon="images/Icons/shield91.png"),
+					inputButton(self, lambda:self.changePage("doors"), 204,10, 48,48, icon="images/Icons/key170.png"),
+					inputButton(self, lambda:self.askConfirmation( \
+						[lambda:self.changePage("security")], \
+						[lambda:self.changePage("keypad"), lambda:self.serialThread.send("LockHouse")], \
+						"Lock the house", "Do you want to put the house in locked mode?"), \
+						262,10, 48,48, icon="images/Icons/locked55.png"),
+					
+					inputButton(self, lambda:None, 20,80, 40,40, icon="images/Icons/ink16.png"),
+					inputButton(self, lambda:None, 20,130, 40,40, icon="images/Icons/tree108.png"),
+					inputButton(self, lambda:None, 20,180, 40,40, icon="images/Icons/cloud301.png"),
+					
+					inputTextButton(self, lambda:None, 70,80, 180,40, "Water leak"),
+					inputTextButton(self, lambda:None, 70,130, 180,40, "Fire"),
+					inputTextButton(self, lambda:None, 70,180, 180,40, "Natural gaz"),
+					
+					inputImage(self, "waterLeakSensor", 260,80, 40,40),
+					inputImage(self, "fireSensor", 260,130, 40,40),
+					inputImage(self, "naturalGazSensor", 260,180, 40,40),
+					
+					
+				]
+			},
+			"sensors":{
+				"name":"Security Sensors",
+				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("security"), 10,10, 48,48, icon="images/Icons/house139.png"),
+					inputButton(self, lambda:self.scrollButtons(-3, 3, self.sensors["security"]), 204,10, 48,48, icon="images/Icons/left204.png"),
+					inputButton(self, lambda:self.scrollButtons(3, 3, self.sensors["security"]), 262,10, 48,48, icon="images/Icons/right204.png"),
+				
+					inputImage(self, "sensor1", 20,80, 40,40),
+					inputImage(self, "sensor2", 20,130, 40,40),
+					inputImage(self, "sensor3", 20,180, 40,40),
+					
+					inputImage(self, "sensor1Status", 260,80, 40,40),
+					inputImage(self, "sensor2Status", 260,130, 40,40),
+					inputImage(self, "sensor3Status", 260,180, 40,40),
+					
+				]
+			},
+			"doors":{
+				"name":"Doors",
+				"background":pygame.image.load("images/Backgrounds/1x0.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.changePage("security"), 10,10, 48,48, icon="images/Icons/house139.png"),
 				]
 			},
 			"keypad":{
@@ -366,7 +459,7 @@ class SARaH:
 					inputToggle(self, lambda:self.AIThread.keepListening, lambda:self.AIKeepListening(), 150,120,10),
 					inputToggle(self, lambda:self.AI.keepListening, lambda:self.AIKeepTriggered(), 150,150,10),
 					inputToggle(self, lambda:self.AI.isTriggered, lambda:self.AIIsTriggered(), 150,180,10),
-					inputToggle(self, lambda:self.AI.canSearch, lambda:self.AIIsTriggered(), 150,210,10),
+					inputToggle(self, lambda:self.AI.canSearch, lambda:self.AICanSearch(), 150,210,10),
 				
 					inputLabel(self, "Sarah", [], 90, 80, align=(0.5,0)),
 					inputLabel(self, "Autolisten", [], 20, 120, align=(0,0.5)),
@@ -374,6 +467,17 @@ class SARaH:
 					inputLabel(self, "Triggered", [], 20, 180, align=(0,0.5)),
 					inputLabel(self, "Search", [], 20, 210, align=(0,0.5)),
 					
+				]
+			},
+			"confirm":{
+				"name":"Confirm",
+				"background":pygame.image.load("images/Backgrounds/1x1.png").convert_alpha(),
+				"inputs":[
+					inputButton(self, lambda:self.cancelConfirmation(), 10,10, 48,48, icon="images/Icons/dislike15.png"),
+					inputButton(self, lambda:self.confirmConfirmation(), 262,10, 48,48, icon="images/Icons/like77.png"),
+					
+					inputLabel(self, "{0}", [lambda:self.confirmation["title"]], 160, 40, align=(0.5,0.5)),
+					inputLabel(self, "{0}", [lambda:self.confirmation["message"]], 160, 80, w=280,align=(0.5,0)),
 				]
 			},
 		}
@@ -438,23 +542,22 @@ class SARaH:
 		
 	def codeDigits(self):
 		if self.passCode["state"] == "passKey":
-			return "*" * len(self.passCode["code"])
+			return ("*" * len(self.passCode["code"]))[0:18]
 		else:
-			return self.passCode["code"]
+			return self.passCode["code"][0:18]
 		
 	def codeDigit(self, digit):
 		self.passCode["code"] = self.passCode["code"] + str(digit)
 		
 	def codeCancel(self):
 		if self.passCode["state"] == "passKey":
-			self.passCode["code"] = ""
+			self.passCode["code"] = self.passCode["code"][0:-1]
 			
 	def codeConfirm(self):
 		if self.passCode["state"] == "passKey":
 			if self.passCode["code"]:
-				self.serial.send(b(self.passCode["code"]))
+				self.serial.send(bytes("UnlockHouse {0}".format(self.passCode["code"]), 'utf-8'))
 				self.passCode["code"] = ""
-				self.passCode["state"] = "normal"
 				
 				#disarm the system
 				#self.MQTTSend("sarah/house", "-1,disarm,1")
@@ -462,12 +565,6 @@ class SARaH:
 				#Bad idea to send a disarm signal over the network, The
 				#security system control panel will be connected through
 				#serial
-				
-				self.changePage("home")
-			else:
-				self.passCode["code"] = ""
-				self.passCode["attempts"] = self.passCode["attempts"] + 1
-		
 	def run(self):
 		self.clock.tick(30)
 		#pygame.draw.rect(self.screen, (0, 128, 255), pygame.Rect(30, 30, 60, 60))
@@ -512,6 +609,13 @@ class SARaH:
 		#self.inputs[0].slide(-1)
 		for inp in self.inputs:
 			inp.update()
+		self.updateGameOfLife()
+		#serialCom = self.serial.receive()
+		#if serialCom:
+		#	print(serialCom)
+		serialCom = self.serialThread.pop()
+		if serialCom:
+			print(serialCom)
 		
 	def draw(self):
 		#print("draw")
@@ -572,10 +676,7 @@ class SARaH:
 		if syncAllInputs:
 			for inp in self.inputs:
 				inp.sync()
-
-	def toggle(self, var, on):
-		exec(var + " = " + on)
-
+				
 	def AIKeepListening(self):
 		self.AIThread.keepListening = not self.AIThread.keepListening
 		
@@ -585,11 +686,15 @@ class SARaH:
 	def AIIsTriggered(self):
 		self.AI.isTriggered = not self.AI.isTriggered
 		
+	def AICanSearch(self):
+		self.AI.canSearch = not self.AI.canSearch
+		
 	def AIListen(self):
 		if not self.AIThread.listen:
 			if self.AI.keepListening:
 				self.AI.isTriggered = True
 			self.AIThread.listen = True
+			self.generateGameOfLife(datetime.datetime.now())
 		else:
 			self.AI.stopTalking()
 			
@@ -757,18 +862,6 @@ class SARaH:
 	def setOutletConsumption(self, room, outlet, consumption=0):
 		self.rooms[room]["outlets"][outlet]["consumption"] = consumption
 		
-	def setMusicStatus(self, status):
-		self.MQTTSend("sarah/house", "-1,musicStatus,{0}".format(status))
-		
-	def setMusicLoop(self, loop):
-		self.MQTTSend("sarah/house", "-1,musicLoop,{0}".format(loop))
-		
-	def setMusicShuffle(self, shuffle):
-		self.MQTTSend("sarah/house", "-1,musicShuffle,{0}".format(shuffle))
-	
-	def setMusicSeek(self, seek):
-		self.MQTTSend("sarah/house", "-1,musicSeek,{0}".format(seek))
-		
 	def createCustomAction(self, name, action, conditions, schedule):
 		self.customActions = self.customActions + [
 			{
@@ -785,10 +878,76 @@ class SARaH:
 	def editCustomActions(self, num):
 		return
 		
-	def mediaDevice(self, device):
-		self.changePage("mediaRemote")
-		self.scrollButtons(0, 1, absolute=True)
-		self.currentMediaDevice = device
+	def generateGameOfLife(self, seed):
+		width = 28
+		height = 14
+		random.seed(seed)
+		self.gameOfLife = []
+		for y in range(0,height+1):
+			self.gameOfLife = self.gameOfLife + [[]]
+			for x in range(0,width+1):
+				self.gameOfLife[y] = self.gameOfLife[y] + [random.randint(0, 1) == 1]
+		
+	def updateGameOfLife(self):
+		if self.gameOfLifeDelay > 0:
+			self.gameOfLifeDelay = self.gameOfLifeDelay-1
+			return
+		self.gameOfLifeDelay = 1
+		
+		newGameOfLife = self.gameOfLife.copy()
+		if self.AIThread.listen:
+			for y, row in enumerate(self.gameOfLife):
+				for x, cell in enumerate(row):
+					neighbours = 0
+					
+					if x > 0:
+						if self.gameOfLife[y] [x-1]:
+							neighbours = neighbours+1
+						if y > 0:
+							if self.gameOfLife[y-1] [x-1]:
+								neighbours = neighbours+1
+						if y < len(self.gameOfLife)-1:
+							if self.gameOfLife[y+1] [x-1]:
+								neighbours = neighbours+1
+					if x < len(row)-1:
+						if self.gameOfLife[y] [x+1]:
+							neighbours = neighbours+1
+						if y > 0:
+							if self.gameOfLife[y-1] [x+1]:
+								neighbours = neighbours+1
+						if y < len(self.gameOfLife)-1:
+							if self.gameOfLife[y+1] [x+1]:
+								neighbours = neighbours+1
+					if y > 0:
+						if self.gameOfLife[y-1] [x]:
+							neighbours = neighbours+1
+					if y < len(self.gameOfLife)-1:
+						if self.gameOfLife[y+1] [x]:
+							neighbours = neighbours+1
+						
+					if neighbours > 3:
+						newGameOfLife[y] [x] = False
+					elif neighbours < 2:
+						newGameOfLife[y] [x] = False
+					if neighbours == 3:
+						newGameOfLife[y] [x] = True
+			self.gameOfLife = newGameOfLife
+		else:
+			self.gameOfLife = []
+			
+	def askConfirmation(self, cancelAction=[], confirmAction=[], title="", message=""):
+		self.confirmation["cancel"] = cancelAction
+		self.confirmation["confirm"] = confirmAction
+		self.confirmation["title"] = title
+		self.confirmation["message"] = message
+		self.changePage("confirm")
+		
+	def cancelConfirmation(self):
+		for i in self.confirmation["cancel"]:
+			i()
+	def confirmConfirmation(self):
+		for i in self.confirmation["confirm"]:
+			i()
 	
 class inputSlider():
 	def __init__(self, class_, var, action=None, v=0, minVal=0, maxVal=100, increments=1, x=0, y=0, w=0, h=0, vertical=False, reversed_=False, color=(127,127,127), cursorColor=(255,255,255), activeCursorColor=(127,127,255), condition=lambda:True):
@@ -1233,8 +1392,9 @@ class inputToggle():
 	def mouseUp(self, x, y):
 		if self.active:
 			self.active = False
-			if self.action:
-				self.action()
+			if self.mouseInside(x, y):
+				if self.action:
+					self.action()
 			
 class inputImage():
 	def __init__(self, class_, var, x=0, y=0, w=0, h=0, align=(0,0), condition=lambda:True):
@@ -1253,7 +1413,8 @@ class inputImage():
 			return
 		if self.image:
 			width, height = self.image.get_size()
-			self.screen.blit(self.image, (self.x-(width*self.align[0]),(self.y-(height*self.align[1]))))
+			if not self.image.get_locked():
+				self.screen.blit(self.image, (self.x-(width*self.align[0]),(self.y-(height*self.align[1]))))
 	def update(self):
 		if not self.condition():
 			return
@@ -1268,6 +1429,35 @@ class inputImage():
 				print(e)
 		else:
 			self.image = None
+	def mouseDown(self, x, y):
+		return
+	def mouseUp(self, x, y):
+		return
+		
+class inputGameOfLife():
+	def __init__(self, class_, x=0, y=0, r=5, color=(32,32,32), condition=lambda:True):
+		self.class_ = class_
+		self.screen = class_.screen
+		self.game = class_.gameOfLife
+		self.x = x
+		self.y = y
+		self.r = r
+		self.color = color
+		self.condition = condition
+	def draw(self):
+		if not self.condition():
+			return
+		for y, row in enumerate(self.game):
+			for x, cell in enumerate(row):
+				if cell:
+					pygame.draw.circle(self.screen, self.color, (self.x + x*self.r*2, self.y + y*self.r*2), self.r)
+	def update(self):
+		if not self.condition():
+			return
+		self.game = self.class_.gameOfLife
+	def sync(self):
+		if not self.condition():
+			return
 	def mouseDown(self, x, y):
 		return
 	def mouseUp(self, x, y):
@@ -1325,7 +1515,8 @@ def aspectScale(img, w, h):
 if __name__ == "__main__":
 	sarah = SARaH()
 	#print(getHexFromRGB(getRGBFromColorWheel(0,50,100)))
-	print(aspectScale(pygame.image.load("images/Backgrounds/1x1.png").convert_alpha(), 160, 240))
+	#print(aspectScale(pygame.image.load("images/Backgrounds/1x1.png").convert_alpha(), 160, 240))
+	#sarah.generateGameOfLife("Hello world")
 	while sarah.keepRunning:
 		sarah.run()
 		

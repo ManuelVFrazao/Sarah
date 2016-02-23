@@ -61,4 +61,3 @@ class SarahMySQL():
 			device = {"name":row[1], "IPAdress":row[2]}
 			
 			self.class_.mediaDevices = self.class_.mediaDevices + [device]
-			
