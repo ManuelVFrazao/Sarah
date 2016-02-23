@@ -73,8 +73,8 @@ class SARaH:
 			
 			"sarahImage":"",
 			
-			"waterLeakSensor":"images/Icons/traffic20.png",
-			"fireSensor":"images/Icons/ghost7.png",
+			"waterLeakSensor":"",
+			"fireSensor":"",
 			"naturalGazSensor":"",
 			
 			"sensor1":"images/Icons/ghost7.png",
@@ -172,14 +172,26 @@ class SARaH:
 			"fire":"Missing",
 			"gaz":"Normal",
 			"security":[
-				{"type":"camera","name":"Front Door","status":"Normal","enabled":True},
-				{"type":"camera","name":"Yard","status":"Normal","enabled":True},
-				{"type":"pirSensor","name":"Hallway","status":"Triggered","enabled":True},
+				{"type":"camera","name":"Front Door Cam","status":"Normal","enabled":True},
+				{"type":"camera","name":"Yard Cam","status":"Normal","enabled":True},
+				{"type":"pirSensor","name":"Hallway PIR","status":"Triggered","enabled":True},
 				{"type":"door","name":"Front Door","status":"Normal","enabled":True},
 				{"type":"door","name":"Back Door","status":"Normal","enabled":True},
-				{"type":"window","name":"Master Bedroom","status":"Normal","enabled":True},
-				{"type":"window","name":"Kid's Bedroom","status":"Normal","enabled":True},
+				{"type":"window","name":"Master Bedroom Window","status":"Normal","enabled":True},
+				{"type":"window","name":"Kid's Bedroom Window","status":"Normal","enabled":True},
 			],
+		}
+		self.sensorTypes = {
+			"camera":"images/Icons/video172.png",
+			"pirSensor":"images/Icons/visible11.png",
+			"door":"images/Icons/key170.png",
+			"window":"images/Icons/image84.png",
+		}
+		self.sensorStatus = {
+			"Normal":"",
+			"Missing":"images/Icons/ghost7.png",
+			"Triggered":"images/Icons/traffic20.png",
+			"Disabled":"images/Icons/flash24.png",
 		}
 		
 		self.gameOfLife = [
@@ -201,7 +213,7 @@ class SARaH:
 				"inputs":[
 					inputButton(self, lambda:self.changePage("house"), 10,10, 48,48, icon="images/Icons/house139.png"),
 					inputButton(self, lambda:self.changePage("sarah"), 68,10, 48,48, icon="images/Icons/microphone83.png"),
-					inputButton(self, lambda:self.changePage("security"), 126,10, 48,48, icon="images/Icons/key170.png"),
+					inputButton(self, [lambda:self.changePage("security"), lambda:self.updateSensors()], 126,10, 48,48, icon="images/Icons/key170.png"),
 					inputButton(self, lambda:self.changePage("options"), 262,10, 48,48, icon="images/Icons/configuration20.png"),
 					
 					inputLabel(self, "{0}", [lambda:self.getTime()], 160, 70, fontSize=72, align=(0.5,0)),
@@ -349,7 +361,7 @@ class SARaH:
 				"background":pygame.image.load("images/Backgrounds/1x3.png").convert_alpha(),
 				"inputs":[
 					inputButton(self, lambda:self.changePage("home"), 10,10, 48,48, icon="images/Icons/house139.png"),
-					inputButton(self, lambda:self.changePage("sensors"), 146,10, 48,48, icon="images/Icons/shield91.png"),
+					inputButton(self, [lambda:self.scrollButtons(0, 3, absolute=True), lambda:self.updateSensors(), lambda:self.changePage("sensors")], 146,10, 48,48, icon="images/Icons/shield91.png"),
 					inputButton(self, lambda:self.changePage("doors"), 204,10, 48,48, icon="images/Icons/key170.png"),
 					inputButton(self, lambda:self.askConfirmation( \
 						[lambda:self.changePage("security")], \
@@ -361,9 +373,9 @@ class SARaH:
 					inputButton(self, lambda:None, 20,130, 40,40, icon="images/Icons/tree108.png"),
 					inputButton(self, lambda:None, 20,180, 40,40, icon="images/Icons/cloud301.png"),
 					
-					inputTextButton(self, lambda:None, 70,80, 180,40, "Water leak"),
-					inputTextButton(self, lambda:None, 70,130, 180,40, "Fire"),
-					inputTextButton(self, lambda:None, 70,180, 180,40, "Natural gaz"),
+					inputTextButton(self, [], 70,80, 180,40, "Water leak"),
+					inputTextButton(self, [], 70,130, 180,40, "Fire"),
+					inputTextButton(self, [], 70,180, 180,40, "Natural gaz"),
 					
 					inputImage(self, "waterLeakSensor", 260,80, 40,40),
 					inputImage(self, "fireSensor", 260,130, 40,40),
@@ -377,17 +389,22 @@ class SARaH:
 				"background":pygame.image.load("images/Backgrounds/1x2.png").convert_alpha(),
 				"inputs":[
 					inputButton(self, lambda:self.changePage("security"), 10,10, 48,48, icon="images/Icons/house139.png"),
-					inputButton(self, lambda:self.scrollButtons(-3, 3, self.sensors["security"]), 204,10, 48,48, icon="images/Icons/left204.png"),
-					inputButton(self, lambda:self.scrollButtons(3, 3, self.sensors["security"]), 262,10, 48,48, icon="images/Icons/right204.png"),
+					inputButton(self, [lambda:self.scrollButtons(-3, 3, self.sensors["security"]), lambda:self.updateSensors()], 204,10, 48,48, icon="images/Icons/left204.png"),
+					inputButton(self, [lambda:self.scrollButtons(3, 3, self.sensors["security"]), lambda:self.updateSensors()], 262,10, 48,48, icon="images/Icons/right204.png"),
 				
-					inputImage(self, "sensor1", 20,80, 40,40),
-					inputImage(self, "sensor2", 20,130, 40,40),
-					inputImage(self, "sensor3", 20,180, 40,40),
+					inputImage(self, "sensor1", 20,80, 40,40, condition=lambda:len(self.sensors["security"])>self.buttonScroll),
+					inputImage(self, "sensor2", 20,130, 40,40, condition=lambda:len(self.sensors["security"])>self.buttonScroll+1),
+					inputImage(self, "sensor3", 20,180, 40,40, condition=lambda:len(self.sensors["security"])>self.buttonScroll+2),
 					
-					inputImage(self, "sensor1Status", 260,80, 40,40),
-					inputImage(self, "sensor2Status", 260,130, 40,40),
-					inputImage(self, "sensor3Status", 260,180, 40,40),
+					inputTextButton(self, [], 70,80, 180,40, "{0}", [lambda:self.sensors["security"][self.buttonScroll]["name"]], maxChar=21, condition=lambda:len(self.sensors["security"])>self.buttonScroll),
+					inputTextButton(self, [], 70,130, 180,40, "{0}", [lambda:self.sensors["security"][self.buttonScroll+1]["name"]], maxChar=21, condition=lambda:len(self.sensors["security"])>self.buttonScroll+1),
+					inputTextButton(self, [], 70,180, 180,40, "{0}", [lambda:self.sensors["security"][self.buttonScroll+2]["name"]], maxChar=21, condition=lambda:len(self.sensors["security"])>self.buttonScroll+2),
 					
+					inputImage(self, "sensor1Status", 260,80, 40,40, condition=lambda:len(self.sensors["security"])>self.buttonScroll),
+					inputImage(self, "sensor2Status", 260,130, 40,40, condition=lambda:len(self.sensors["security"])>self.buttonScroll+1),
+					inputImage(self, "sensor3Status", 260,180, 40,40, condition=lambda:len(self.sensors["security"])>self.buttonScroll+2),
+					
+					inputLabel(self, "{0} of {1}", [lambda:self.buttonScroll//3+1,lambda:(len(self.sensors["security"])-1)//3+1], 131, 40, fontSize=28, align=(0.5,0.5)),
 				]
 			},
 			"doors":{
@@ -948,6 +965,25 @@ class SARaH:
 	def confirmConfirmation(self):
 		for i in self.confirmation["confirm"]:
 			i()
+			
+	def updateSensors(self):
+		self.inputsValue["waterLeakSensor"] = self.sensorStatus[self.sensors["leak"]]
+		self.inputsValue["fireSensor"] = self.sensorStatus[self.sensors["fire"]]
+		self.inputsValue["naturalGazSensor"] = self.sensorStatus[self.sensors["gaz"]]
+		
+		if len(self.sensors["security"])>self.buttonScroll:
+			self.inputsValue["sensor1"] = self.sensorTypes[self.sensors["security"][self.buttonScroll]["type"]]
+			self.inputsValue["sensor1Status"] = self.sensorStatus[self.sensors["security"][self.buttonScroll]["status"]]
+		if len(self.sensors["security"])>self.buttonScroll+1:
+			self.inputsValue["sensor2"] = self.sensorTypes[self.sensors["security"][self.buttonScroll+1]["type"]]
+			self.inputsValue["sensor2Status"] = self.sensorStatus[self.sensors["security"][self.buttonScroll]["status"]]
+		if len(self.sensors["security"])>self.buttonScroll+2:
+			self.inputsValue["sensor3"] = self.sensorTypes[self.sensors["security"][self.buttonScroll+2]["type"]]
+			self.inputsValue["sensor3Status"] = self.sensorStatus[self.sensors["security"][self.buttonScroll]["status"]]
+		
+		for inp in self.inputs:
+			inp.sync()
+		
 	
 class inputSlider():
 	def __init__(self, class_, var, action=None, v=0, minVal=0, maxVal=100, increments=1, x=0, y=0, w=0, h=0, vertical=False, reversed_=False, color=(127,127,127), cursorColor=(255,255,255), activeCursorColor=(127,127,255), condition=lambda:True):
@@ -1508,7 +1544,7 @@ def aspectScale(img, w, h):
 	else:
 		nx = ax*h
 		ny = h
-	print(nx, ny)
+	#print(nx, ny)
 	return pygame.transform.smoothscale(img, (int(nx),int(ny)))
 	
 
